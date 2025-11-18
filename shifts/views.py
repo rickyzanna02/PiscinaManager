@@ -397,7 +397,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
     # ----------------------------------------------------------
     # RISPOSTA A RICHIESTA (ACCONSENTE / RIFIUTA)
-    # ----------------------------------------------------------
+   # ----------------------------------------------------------
     @action(detail=False, methods=['post'])
     def respond_replacement(self, request):
         req_id = request.data.get("request_id")
@@ -414,58 +414,124 @@ class ShiftViewSet(viewsets.ModelViewSet):
         if req.status != 'pending':
             return Response({'error': 'Richiesta già gestita'}, status=400)
 
-        # ---- RIFIUTA ----
+        shift = req.shift
+        requester = req.requester
+        sostituto = req.target_user
+
+        from .models import Shift, TemplateShift
+
+        orig_start = shift.start_time
+        orig_end = shift.end_time
+        part_start = req.partial_start
+        part_end = req.partial_end
+
+        # -----------------------------------------------------
+        # 🔴 RIFIUTA
+        # -----------------------------------------------------
         if action == "reject":
             req.status = 'rejected'
             req.save(update_fields=["status"])
             return Response({'message': 'Richiesta rifiutata'}, status=200)
 
-       # ---- ACCETTA ----
+        # -----------------------------------------------------
+        # 🟢 ACCETTA
+        # -----------------------------------------------------
         req.status = 'accepted'
         req.save(update_fields=["status"])
 
-        # Rifiuta tutte le altre richieste per lo stesso turno
-        other_reqs = ReplacementRequest.objects.filter(shift=req.shift).exclude(id=req.id)
-        other_reqs.update(status='rejected')
+        ReplacementRequest.objects.filter(shift=shift).exclude(id=req.id).update(status='rejected')
 
-        shift = req.shift
+        # Utility: crea turno reale
+        def create_shift(user, start, end):
+            return Shift.objects.create(
+                user=user,
+                role=shift.role,
+                date=shift.date,
+                start_time=start,
+                end_time=end,
+                approved=shift.approved,
+            )
 
-        # 🔥 1) Aggiorna il turno reale
-        shift.user = req.target_user
-        shift.save(update_fields=["user"])
+        # Utility: crea template corrispondente
+        def create_template_shift(user, start, end):
+            old_t = TemplateShift.objects.filter(
+                weekday=shift.date.weekday(),
+                start_time=orig_start,
+                end_time=orig_end,
+                category=shift.role,
+                user=requester
+            ).first()
 
-        # 🔥 2) Aggiorna il TEMPLATE SHIFT corrispondente
-        from .models import TemplateShift
-
-        template = TemplateShift.objects.filter(
-            user=req.requester,                 # vecchio assegnato
-            weekday=shift.date.weekday(),       # stesso giorno settimana
-            start_time=shift.start_time,
-            end_time=shift.end_time,
-            category=shift.role                     # stesso ruolo
-        ).first()
-
-        if template:
-            template.user = req.target_user     # assegna al nuovo sostituto
-            template.save(update_fields=["user"])
-
+            if old_t:
+                return TemplateShift.objects.create(
+                    user=user,
+                    category=old_t.category,
+                    weekday=old_t.weekday,
+                    start_time=start,
+                    end_time=end
+                )
 
         # -----------------------------------------------------
         # 🔵 SOSTITUZIONE TOTALE
         # -----------------------------------------------------
         if not req.partial:
-            shift.user = req.target_user
+            shift.user = sostituto
             shift.save(update_fields=["user"])
+
+            TemplateShift.objects.filter(
+                weekday=shift.date.weekday(),
+                start_time=orig_start,
+                end_time=orig_end,
+                category=shift.role,
+                user=requester
+            ).update(user=sostituto)
+
+            return Response({'message': 'Sostituzione totale accettata'}, status=200)
+
+        # -----------------------------------------------------
+        # 🟣 SOSTITUZIONE PARZIALE (SPLIT)
+        # -----------------------------------------------------
+
+        # Caso 1 — inizio combacia
+        if part_start == orig_start and part_end < orig_end:
+            create_shift(sostituto, part_start, part_end)
+            create_template_shift(sostituto, part_start, part_end)
+
+            create_shift(requester, part_end, orig_end)
+            create_template_shift(requester, part_end, orig_end)
+
+        # Caso 2 — fine combacia
+        elif part_start > orig_start and part_end == orig_end:
+            create_shift(requester, orig_start, part_start)
+            create_template_shift(requester, orig_start, part_start)
+
+            create_shift(sostituto, part_start, part_end)
+            create_template_shift(sostituto, part_start, part_end)
+
+        # Caso 3 — interno
         else:
-            # -----------------------------------------------------
-            # 🟣 PARZIALE (per ora soluzione semplice)
-            # -----------------------------------------------------
-            shift.user = req.target_user
-            shift.save(update_fields=["user"])
-            # TODO: implementare split turni se vuoi farla completa
+            create_shift(requester, orig_start, part_start)
+            create_template_shift(requester, orig_start, part_start)
 
-        return Response({'message': 'Richiesta accettata'}, status=200)
+            create_shift(sostituto, part_start, part_end)
+            create_template_shift(sostituto, part_start, part_end)
 
+            create_shift(requester, part_end, orig_end)
+            create_template_shift(requester, part_end, orig_end)
+
+        # Rimuovi vecchio turno
+        shift.delete()
+
+        # Rimuovi vecchio template originale
+        TemplateShift.objects.filter(
+            weekday=shift.date.weekday(),
+            start_time=orig_start,
+            end_time=orig_end,
+            category=shift.role,
+            user=requester
+        ).delete()
+
+        return Response({'message': 'Sostituzione parziale accettata'}, status=200)
 
 # ============================================================
 #  TARIFFE ORARIE / PER TURNO

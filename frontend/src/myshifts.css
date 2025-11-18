@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
 
 /* ============================================================
    SOLO PER PAGINA COLLABORATORE — ISOLATO DENTRO .myshifts-wrapper
@@ -122,6 +121,7 @@
   text-align: left;
   opacity: 0.95;
   transition: 0.2s ease;
+  color: #000 !important;
   white-space: normal !important; /* 👈 evita il troncamento */
 }
 
