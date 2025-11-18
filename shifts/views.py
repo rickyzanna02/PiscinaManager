@@ -439,11 +439,22 @@ class ShiftViewSet(viewsets.ModelViewSet):
         req.status = 'accepted'
         req.save(update_fields=["status"])
 
-        ReplacementRequest.objects.filter(shift=shift).exclude(id=req.id).update(status='rejected')
+        # -----------------------------------------------------
+        # 🔍 TROVA TEMPLATE ORIGINALE (se esiste)
+        # -----------------------------------------------------
+        original_template = TemplateShift.objects.filter(
+            weekday=shift.date.weekday(),
+            start_time=orig_start,
+            end_time=orig_end,
+            category=shift.role,   # category = ruolo singolare: bagnino, istruttore, ...
+            user=requester
+        ).first()
 
-        # Utility: crea turno reale
+        # Utility: crea turno reale e, se è del titolare, tracciamolo
+        new_requester_shifts = []
+
         def create_shift(user, start, end):
-            return Shift.objects.create(
+            s = Shift.objects.create(
                 user=user,
                 role=shift.role,
                 date=shift.date,
@@ -451,22 +462,17 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 end_time=end,
                 approved=shift.approved,
             )
+            if user == requester:
+                new_requester_shifts.append(s)
+            return s
 
-        # Utility: crea template corrispondente
+        # Utility: crea template derivati
         def create_template_shift(user, start, end):
-            old_t = TemplateShift.objects.filter(
-                weekday=shift.date.weekday(),
-                start_time=orig_start,
-                end_time=orig_end,
-                category=shift.role,
-                user=requester
-            ).first()
-
-            if old_t:
+            if original_template:
                 return TemplateShift.objects.create(
                     user=user,
-                    category=old_t.category,
-                    weekday=old_t.weekday,
+                    category=original_template.category,
+                    weekday=original_template.weekday,
                     start_time=start,
                     end_time=end
                 )
@@ -475,16 +481,19 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 🔵 SOSTITUZIONE TOTALE
         # -----------------------------------------------------
         if not req.partial:
+            # turno reale
             shift.user = sostituto
             shift.save(update_fields=["user"])
 
-            TemplateShift.objects.filter(
-                weekday=shift.date.weekday(),
-                start_time=orig_start,
-                end_time=orig_end,
-                category=shift.role,
-                user=requester
-            ).update(user=sostituto)
+            # template (se esiste)
+            if original_template:
+                original_template.user = sostituto
+                original_template.save(update_fields=["user"])
+
+            # qui ha senso rifiutare tutte le altre richieste sullo stesso turno
+            ReplacementRequest.objects.filter(
+                shift=shift
+            ).exclude(id=req.id).update(status='rejected')
 
             return Response({'message': 'Sostituzione totale accettata'}, status=200)
 
@@ -492,46 +501,89 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 🟣 SOSTITUZIONE PARZIALE (SPLIT)
         # -----------------------------------------------------
 
-        # Caso 1 — inizio combacia
+        # 1) Individua tutte le ALTRE richieste sullo stesso turno
+        other_reqs = ReplacementRequest.objects.filter(shift=shift).exclude(id=req.id)
+
+        # 2) separa PARZIALI e TOTALI
+        partial_reqs = other_reqs.filter(partial=True)
+        total_reqs = other_reqs.filter(partial=False)
+
+        # 3) tra le PARZIALI, separa quelle SOVRAPPOSTE e NON SOVRAPPOSTE
+        overlapping = partial_reqs.filter(
+            partial_start__lt=part_end,
+            partial_end__gt=part_start,
+        )
+        non_overlapping = partial_reqs.exclude(id__in=overlapping.values("id"))
+
+        # 4) rifiuta le parziali sovrapposte
+        overlapping.update(status='rejected')
+
+        # 5) le TOTALI non hanno più senso dopo uno split → rifiutale
+        total_reqs.update(status='rejected')
+
+
+        # 4) spezza il turno reale e il template
+        # Caso 1 — parte all’inizio
         if part_start == orig_start and part_end < orig_end:
+            # sostituto: [start-end accettato]
             create_shift(sostituto, part_start, part_end)
             create_template_shift(sostituto, part_start, part_end)
 
+            # titolare: [fine accettato - fine originale]
             create_shift(requester, part_end, orig_end)
             create_template_shift(requester, part_end, orig_end)
 
-        # Caso 2 — fine combacia
+        # Caso 2 — parte alla fine
         elif part_start > orig_start and part_end == orig_end:
+            # titolare: [inizio originale - inizio accettato]
             create_shift(requester, orig_start, part_start)
             create_template_shift(requester, orig_start, part_start)
 
+            # sostituto: [inizio accettato - fine originale]
             create_shift(sostituto, part_start, part_end)
             create_template_shift(sostituto, part_start, part_end)
 
-        # Caso 3 — interno
+        # Caso 3 — parte interna
         else:
+            # titolare: pezzo iniziale
             create_shift(requester, orig_start, part_start)
             create_template_shift(requester, orig_start, part_start)
 
+            # sostituto: pezzo centrale
             create_shift(sostituto, part_start, part_end)
             create_template_shift(sostituto, part_start, part_end)
 
+            # titolare: pezzo finale
             create_shift(requester, part_end, orig_end)
             create_template_shift(requester, part_end, orig_end)
 
-        # Rimuovi vecchio turno
+        # 5) per le richieste NON SOVRAPPOSTE, ricollegale al nuovo turno giusto
+        for other in non_overlapping:
+            # cerco tra i nuovi turni DEL TITOLARE quello che contiene l'intervallo richiesto
+            target_shift = None
+            for s in new_requester_shifts:
+                if s.start_time <= other.partial_start and s.end_time >= other.partial_end:
+                    target_shift = s
+                    break
+
+            if target_shift:
+                other.shift = target_shift
+                other.save(update_fields=["shift"])
+            else:
+                # se per qualche motivo non troviamo un turno compatibile → la rifiutiamo
+                other.status = 'rejected'
+                other.save(update_fields=["status"])
+
+        # 6) elimina il turno reale originale (NON ha più richieste collegate)
         shift.delete()
 
-        # Rimuovi vecchio template originale
-        TemplateShift.objects.filter(
-            weekday=shift.date.weekday(),
-            start_time=orig_start,
-            end_time=orig_end,
-            category=shift.role,
-            user=requester
-        ).delete()
+        # 7) elimina template originale (ora ci sono i pezzi)
+        if original_template:
+            original_template.delete()
 
         return Response({'message': 'Sostituzione parziale accettata'}, status=200)
+
+
 
 # ============================================================
 #  TARIFFE ORARIE / PER TURNO

@@ -330,14 +330,15 @@ ok ora vorrei modificare la gestione dei turni personali dei collaboratori. vorr
 2) cliccando sul bottone si apre un popup di gestione del turno con: richiedi sostituizione (deve funzionare), malattia, permesso, mutua (che gestiremo piu avanti)
 3) se un utente richiede sostituzione deve poter selezionare a chi chiederla (elenco collaboratori), seleziona a chi. I collaboratori selezionati devono ricevere in un area dedicata del profilo (che va creata), la richiesta con la possibilità di accettare o rifiutare. chi ha chiesto la sostituzione deve avere il resoconto di chi ha rifiutato e accettato. appena uno accetta la sostituzione, essa deve scomparire da tutti gli altri e il turno deve aggiornarsi automaticamente. 
 
+vorrei ora gestire le sostituzioni parziali. immaginiamo di avere un turno dalle 6 alle 12 la sostituzione totale (tutto 6-12) funziona gia correttamente la sostituzione parziale deve funzionare cosi: - se l'orario di inizio sostituzione corrisponde con l'inizio del turno (es richiesta sost dalle 6 alle 8 di un turno 6-12), il turno deve esssere spezzato in 2: dalle 6 alle 8 passa a chi accetta la sostituzione e il resto dalle 8 alle 12 resta al utente originario. - se l'orario di fine sostituzione coindice con la fine del turno (es richiesta sostituzione dalle 10 alle 12 di un turno dalle 6 alle 12): stesso discorso di sopra, divisione del turno in 2 ecc - se l'orario di inizio e di fine non coincidono, (sostituzione "interna" es dalle 8 alle 10 di un turno 6-12), devono essere creati 3 turni: il primo dalle 6 alle 8 resta all utente , il secondo dalle 8 alle 10 passa a chi la accetta, il terzo dalle 10 alle 12 resta all'utente richiedente. tutto questo deve aggiornare anche il calendario di admin (template shift), oltre a shift, e ogni utente alla fine dovrà vedere solo i turni che effettivamente fa. Admin alla fine vedrà che il turno originario 6-12 si è spezzato in 2 o 3 pezzi (dipende dai casi), con relativi orari e nomi
+
 
 
 
 DA FARE:
 - gestire bottoni pubblica settimana/mese: se non ci snoo modifiche renderli non cliccabili ad esempio
-
-vorrei ora gestire le sostituzioni parziali. immaginiamo di avere un turno dalle 6 alle 12 la sostituzione totale (tutto 6-12) funziona gia correttamente la sostituzione parziale deve funzionare cosi: - se l'orario di inizio sostituzione corrisponde con l'inizio del turno (es richiesta sost dalle 6 alle 8 di un turno 6-12), il turno deve esssere spezzato in 2: dalle 6 alle 8 passa a chi accetta la sostituzione e il resto dalle 8 alle 12 resta al utente originario. - se l'orario di fine sostituzione coindice con la fine del turno (es richiesta sostituzione dalle 10 alle 12 di un turno dalle 6 alle 12): stesso discorso di sopra, divisione del turno in 2 ecc - se l'orario di inizio e di fine non coincidono, (sostituzione "interna" es dalle 8 alle 10 di un turno 6-12), devono essere creati 3 turni: il primo dalle 6 alle 8 resta all utente , il secondo dalle 8 alle 10 passa a chi la accetta, il terzo dalle 10 alle 12 resta all'utente richiedente. tutto questo deve aggiornare anche il calendario di admin (template shift), oltre a shift, e ogni utente alla fine dovrà vedere solo i turni che effettivamente fa. Admin alla fine vedrà che il turno originario 6-12 si è spezzato in 2 o 3 pezzi (dipende dai casi), con relativi orari e nomi
-
+- problema: sostituzioni multiple: SE ne accetto una spariscono tutte.
+- problema: in caso di sostituzioni multiple sullo stesso turno è capitato che un parte di turno resti in shift ma non in template shift: fare prove
 
 
 
