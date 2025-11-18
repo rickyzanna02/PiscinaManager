@@ -184,7 +184,9 @@ export default function MyShifts({ userId }) {
   // =====================================================
   // RENDER CALENDARIO (TAB "I MIEI TURNI")
   // =====================================================
+  
   const renderCalendar = () => (
+  <div className="collab-calendar">
     <FullCalendar
       plugins={[timeGridPlugin, interactionPlugin]}
       initialView="timeGridWeek"
@@ -234,8 +236,10 @@ export default function MyShifts({ userId }) {
 
         return { domNodes: [div] };
       }}
-    />
+    /> 
+     </div>
   );
+
 
   // =====================================================
   // RENDER TAB SOSTITUZIONI
@@ -555,7 +559,7 @@ export default function MyShifts({ userId }) {
   // RENDER COMPLETO
   // =====================================================
   return (
-    <div className="p-6">
+    <div className="p-6 myshifts-wrapper">
       {/* --- TABS --- */}
       <div className="flex gap-4 mb-6">
         <button

@@ -281,7 +281,44 @@ export default function App() {
       console.error(e);
       alert("Errore nel salvataggio del corso");
     }
+
+
+    
   };
+const renderCalendar = () => (
+      <div className="admin-calendar">
+        <FullCalendar
+          key={calendarKey}
+          plugins={[timeGridPlugin, interactionPlugin]}
+          initialView="timeGridWeek"
+          firstDay={1}
+          locale={itLocale}
+          slotLabelFormat={{
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }}
+          dayHeaderFormat={{
+            weekday: "short",
+            day: "2-digit",
+            month: "2-digit",
+          }}
+          selectable={true}
+          selectMirror={true}
+          selectOverlap={true}
+          eventOverlap={true}
+          editable={false}
+          allDaySlot={false}
+          events={events}
+          select={handleSelect}
+          eventContent={renderEventContent}
+          slotMinTime="06:00:00"
+          slotMaxTime="22:00:00"
+          height="auto"
+        />
+      </div>
+    );
+
 
   return (
     <div className="p-6">
@@ -365,35 +402,10 @@ export default function App() {
       </div>
 
       {/* --- Calendario --- */}
-      <FullCalendar
-        key={calendarKey}
-        plugins={[timeGridPlugin, interactionPlugin]}
-        initialView="timeGridWeek"
-        firstDay={1}
-        locale={itLocale}
-        slotLabelFormat={{
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }}
-        dayHeaderFormat={{
-          weekday: "short",
-          day: "2-digit",
-          month: "2-digit",
-        }}
-        selectable={true}
-        selectMirror={true}
-        selectOverlap={true}
-        eventOverlap={true}
-        editable={false}
-        allDaySlot={false}
-        events={events}
-        select={handleSelect}
-        eventContent={renderEventContent}
-        slotMinTime="06:00:00"
-        slotMaxTime="22:00:00"
-        height="auto"
-      />
+      {renderCalendar()}
+
+      
+
 
       {/* ... resto identico al tuo (popup assegnazione, gestione turno e inserisci corso) ... */}
 

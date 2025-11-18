@@ -18,3 +18,13 @@ ok ora vorrei modificare la gestione dei turni personali dei collaboratori. vorr
 
 DA FARE:
 - gestire bottoni pubblica settimana/mese: se non ci snoo modifiche renderli non cliccabili ad esempio
+
+
+
+
+
+
+PS C:\Users\ricky\Desktop\Piscina_Manager\PiscinaManager> .\venv\Scripts\activate
+(venv) PS C:\Users\ricky\Desktop\Piscina_Manager\PiscinaManager> python manage.py runserver
+
+ C:\Users\ricky\Desktop\Piscina_Manager\PiscinaManager\frontend> npm run dev

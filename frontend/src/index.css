@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Popup overlay === */
+/* Overlay popup generico dell'app */
+
 #popup-overlay {
   position: fixed;
   inset: 0;
@@ -21,65 +22,19 @@
   padding: 24px;
 }
 
-/* === Colori eventi personalizzati === */
-.fc-event {
-  background-color: var(--fc-event-bg-color, #4ade80) !important;
-  border-color: var(--fc-event-border-color, #4ade80) !important;
-  color: var(--fc-event-text-color, #000000) !important;
-  z-index: 50 !important;
-}
 
-/* === Eventi di turno (drag sopra eventi esistenti) === */
-.shift-event {
-  pointer-events: none !important;
-  opacity: 0.9;
-}
-.shift-event * {
+/* ============================================================
+   CALENDARIO ADMIN — permetti drag/select anche sopra gli eventi
+   ============================================================ */
+
+/* Il "rettangolo" dell'evento NON intercetta il mouse */
+.admin-calendar .fc-event {
   pointer-events: none !important;
 }
 
-/* === CONSENTI clic sui bottoni dell'evento === */
-/* Riattiva pointer-events e porta in primo piano il contenuto del bottone */
-
-
-
-/* Riattiva solo il contenuto del nostro evento personalizzato */
-.fc-event .fc-custom-event {
-  position: relative;
-  z-index: 60 !important;
-  display: flex;
-  justify-content: flex-start; /* allinea a sinistra */
-  align-items: flex-start;
-}
-
-/* === Bottone del turno (nome + orario) === */
-.fc-custom-event button {
-  position: relative;
-  z-index: 999 !important;
+/* Il contenuto personalizzato (bottone) RESTA cliccabile */
+.admin-calendar .fc-custom-event button {
   pointer-events: auto !important;
   cursor: pointer;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 11px;
-  padding: 2px 6px;
-  margin-top: 3px;
-  text-align: left;
-  width: 75%; /* 👈 largo 75% */
-  opacity: 0.95;
-  transition: all 0.2s ease;
 }
-
-/* === Effetto visivo del bottone === */
-.fc-custom-event button {
-  opacity: 0.95;
-  transition: all 0.2s ease;
-}
-
-.fc-custom-event button:hover {
-  opacity: 1;
-  background-color: #f9fafb;
-  transform: scale(1.02);
-}
-
 

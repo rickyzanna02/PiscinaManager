@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 /* ============================================================
-   CALENDARIO COLLABORATORE — EVENTI CLICCABILI (FIX DEFINITIVO)
+   SOLO PER PAGINA COLLABORATORE — ISOLATO DENTRO .myshifts-wrapper
    ============================================================ */
 
-.fc-event {
+.myshifts-wrapper .fc-event {
   pointer-events: auto !important;
   cursor: pointer !important;
   z-index: 50 !important;
 }
 
 /* bottone interno del turno */
-.myshift-event-btn {
+.myshifts-wrapper .myshift-event-btn {
   pointer-events: auto !important;
   z-index: 999 !important;
   background: white;
@@ -28,13 +28,45 @@
   transition: 0.2s ease;
 }
 
-.myshift-event-btn:hover {
+.myshifts-wrapper .myshift-event-btn:hover {
   background: #f9fafb;
   opacity: 1;
   transform: scale(1.03);
 }
 
-/* === POPUP GENERALE === */
+/* container personalizzato dell’evento */
+.myshifts-wrapper .fc-custom-event {
+  position: relative;
+  z-index: 60 !important;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* bottone interno */
+.myshifts-wrapper .fc-custom-event button {
+  position: relative;
+  z-index: 999 !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 2px 6px;
+  margin-top: 3px;
+  width: 75%;
+  opacity: 0.95;
+  transition: all 0.2s ease;
+}
+
+.myshifts-wrapper .fc-custom-event button:hover {
+  opacity: 1;
+  background-color: #f9fafb;
+  transform: scale(1.02);
+}
+
+/* popup */
 #popup-overlay-shifts {
   position: fixed;
   inset: 0;
@@ -51,6 +83,4 @@
   box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
   width: 380px;
   padding: 24px;
-  max-height: 90vh;
-  overflow-y: auto;
 }
