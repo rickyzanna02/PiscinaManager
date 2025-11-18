@@ -85,3 +85,57 @@
   padding: 24px;
 }
 
+/* === Overlay popup identico all'admin === */
+#popup-overlay-shifts {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99999 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#popup-overlay-shifts .popup {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+  width: 420px;
+  padding: 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* === Bottone evento identico admin === */
+.fc-custom-event button {
+  position: relative;
+  z-index: 999 !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  width: 75%;
+  line-height: 1.25;
+  text-align: left;
+  opacity: 0.95;
+  transition: 0.2s ease;
+  white-space: normal !important; /* 👈 evita il troncamento */
+}
+
+.fc-custom-event button:hover {
+  opacity: 1;
+  background: #f9fafb;
+  transform: scale(1.02);
+}
+
+.fc-event {
+  pointer-events: none !important;
+}
+
+.fc-custom-event {
+  pointer-events: auto !important;
+  z-index: 999 !important;
+}

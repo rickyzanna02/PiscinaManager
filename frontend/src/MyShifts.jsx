@@ -9,19 +9,19 @@ import "./myshifts.css";
 export default function MyShifts({ userId }) {
   const [shifts, setShifts] = useState([]);
 
-  // --- TABS: "turni" / "sostituzioni" ---
+  // --- Tabs
   const [activeTab, setActiveTab] = useState("shifts");
 
-  // --- Popup gestione sostituzioni ---
-  const [selectedShift, setSelectedShift] = useState(null); // FullCalendar event (con id = shift.id)
-  const [step, setStep] = useState(null); // "choose-type" | "choose-full-or-partial" | "partial-time" | "choose-users"
+  // --- Popup gestione sostituzioni
+  const [selectedShift, setSelectedShift] = useState(null);
+  const [step, setStep] = useState(null);
   const [partial, setPartial] = useState(false);
   const [partialStart, setPartialStart] = useState("");
   const [partialEnd, setPartialEnd] = useState("");
   const [collaborators, setCollaborators] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  // --- Richieste sostituzione ---
+  // --- Richieste sostituzione
   const [sentRequests, setSentRequests] = useState([]);
   const [receivedRequests, setReceivedRequests] = useState([]);
 
@@ -29,85 +29,68 @@ export default function MyShifts({ userId }) {
   // CARICA TURNI
   // =====================================================
   const loadShifts = () => {
-  api
-    .get(`shifts/?user=${userId}`)
-    .then((res) => {
-      const mapped = res.data.map((s) => {
-        // colore base
-        let color = "#4ade80"; // verde
-        let clickable = true;
-        let title = s.role;
+    api
+      .get(`shifts/?user=${userId}`)
+      .then((res) => {
+        const mapped = res.data.map((s) => {
+          let color = "#3b82f6"; // blu
+          let clickable = true;
+          let title = s.role;
 
-        // --- 🔥 Gestione sostituzioni accettate ---
-        if (s.replacement_info?.accepted) {
-          // 👤 Sono il RICHIEDENTE che ha chiesto la sostituzione
-          if (s.replacement_info.requester_id === userId) {
-            color = "#9ca3af"; // grigio
-            clickable = false;
-            title = `Sostituito da ${s.replacement_info.accepted_by_username}`;
+          // 🔥 Gestione sostituzioni accettate
+          if (s.replacement_info?.accepted) {
+            if (s.replacement_info.requester_id === userId) {
+              color = "#9ca3af"; // grigio
+              clickable = false;
+              title = `Sostituito da ${s.replacement_info.accepted_by_username}`;
+            }
+
+            if (s.replacement_info.accepted_by_id === userId) {
+              color = "#60a5fa"; // azzurro
+              clickable = true;
+            }
           }
 
-          // 👤 Sono il SOSTITUTO che ha accettato la sostituzione
-          if (s.replacement_info.accepted_by_id === userId) {
-            color = "#60a5fa"; // blu chiaro
-            clickable = true; // posso cliccare e fare richieste
-          }
-        }
+          return {
+            id: s.id,
+            title,
+            start: `${s.date}T${s.start_time}`,
+            end: `${s.date}T${s.end_time}`,
+            color,
+            extendedProps: { clickable },
+          };
+        });
 
-        return {
-          id: s.id,
-          title,
-          start: `${s.date}T${s.start_time}`,
-          end: `${s.date}T${s.end_time}`,
-          color,
-          extendedProps: { clickable },
-        };
-      });
-
-      setShifts(mapped);
-    })
-    .catch((err) => console.error("Errore caricamento turni:", err));
-};
+        setShifts(mapped);
+      })
+      .catch((err) => console.error("Errore caricamento turni:", err));
+  };
 
   // =====================================================
-  // CARICA COLLABORATORI (per scegliere a chi chiedere)
+  // CARICA COLLABORATORI
   // =====================================================
   const loadCollaborators = () => {
     api
       .get("users/")
       .then((res) => {
-        const list = (res.data || []).filter((u) => u.id !== userId);
-        setCollaborators(list);
+        setCollaborators((res.data || []).filter((u) => u.id !== userId));
       })
       .catch((err) => console.error("Errore caricamento utenti:", err));
   };
 
   // =====================================================
-  // CARICA RICHIESTE INVIATE / RICEVUTE dal backend
-  // (usa gli endpoint già esistenti: replacements_sent / replacements_received)
+  // CARICA RICHIESTE INVIATE / RICEVUTE
   // =====================================================
   const loadRequests = () => {
     if (!userId) return;
 
-    // richieste INVIATE
     api
       .get(`shifts/replacements_sent/?user_id=${userId}`)
-      .then((res) => {
-        setSentRequests(res.data || []);
-      })
-      .catch((err) =>
-        console.error("Errore caricamento richieste inviate:", err)
-      );
+      .then((res) => setSentRequests(res.data || []));
 
-    // richieste RICEVUTE
     api
       .get(`shifts/replacements_received/?user_id=${userId}`)
-      .then((res) => {
-        setReceivedRequests(res.data || []);
-      })
-      .catch((err) =>
-        console.error("Errore caricamento richieste ricevute:", err)
-      );
+      .then((res) => setReceivedRequests(res.data || []));
   };
 
   useEffect(() => {
@@ -119,10 +102,10 @@ export default function MyShifts({ userId }) {
   }, [userId]);
 
   // =====================================================
-  // APRI POPUP SOSTITUZIONE
+  // APERTURA POPUP SOSTITUZIONE
   // =====================================================
   const openReplacementPopup = (fcEvent) => {
-    setSelectedShift(fcEvent); // fcEvent.id = shift.id dal backend
+    setSelectedShift(fcEvent);
     setStep("choose-type");
     setPartial(false);
     setPartialStart("");
@@ -131,19 +114,15 @@ export default function MyShifts({ userId }) {
   };
 
   // =====================================================
-  // INVIA RICHIESTE SOSTITUZIONE
+  // INVIO RICHIESTE SOSTITUZIONE
   // =====================================================
   const sendReplacementRequests = async () => {
     if (!selectedShift) return;
-
-    if (selectedUsers.length === 0) {
-      alert("Seleziona almeno un collaboratore");
-      return;
-    }
+    if (selectedUsers.length === 0) return alert("Seleziona almeno un collaboratore");
 
     const payload = {
       target_users: selectedUsers,
-      partial: partial,
+      partial,
       partial_start: partial ? partialStart : null,
       partial_end: partial ? partialEnd : null,
     };
@@ -153,18 +132,14 @@ export default function MyShifts({ userId }) {
       alert("Richieste inviate!");
       setSelectedShift(null);
       setStep(null);
-      setSelectedUsers([]);
       loadRequests();
-    } catch (err) {
-      console.error("Errore invio richieste:", err);
-      alert("Errore nell'invio delle richieste di sostituzione.");
+    } catch {
+      alert("Errore nell'invio delle richieste.");
     }
   };
 
   // =====================================================
-  // ACCETTA / RIFIUTA UNA RICHIESTA
-  // Usa l'endpoint: POST /shifts/respond_replacement/
-  // con body { request_id, action: "accept" | "reject" }
+  // ACCETTA / RIFIUTA
   // =====================================================
   const respond = async (id, status) => {
     const action = status === "accepted" ? "accept" : "reject";
@@ -175,87 +150,82 @@ export default function MyShifts({ userId }) {
         action,
       });
       loadRequests();
-    } catch (err) {
-      console.error("Errore risposta richiesta:", err);
-      alert("Errore nella risposta alla richiesta.");
+    } catch {
+      alert("Errore nella risposta.");
     }
   };
 
   // =====================================================
-  // RENDER CALENDARIO (TAB "I MIEI TURNI")
+  // EVENTO (STILE ADMIN)
   // =====================================================
-  
-  const renderCalendar = () => (
-  <div className="collab-calendar">
-    <FullCalendar
-      plugins={[timeGridPlugin, interactionPlugin]}
-      initialView="timeGridWeek"
-      firstDay={1}
-      locale={itLocale}
-      allDaySlot={false}
-      slotMinTime="06:00:00"
-      slotMaxTime="22:00:00"
-      events={shifts}
-      height="auto"
-      eventClick={(info) => {
-        if (!info.event.extendedProps.clickable) return; // ⛔ blocca click
-        info.jsEvent.preventDefault();
-        info.jsEvent.stopPropagation();
-        openReplacementPopup(info.event);
-      }}
-      eventContent={(info) => {
-  const start = info.event.start.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  const end = info.event.end.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  const div = document.createElement("div");
-  div.className = "fc-custom-event flex flex-col items-start text-left w-full";
-
-  div.innerHTML = `
-    <button 
-      class="
-        text-[12px] font-semibold bg-white/90 hover:bg-white 
-        text-gray-800 border border-gray-300 rounded-md 
-        px-2 py-1 leading-tight shadow-sm transition w-full
-      "
-      style="white-space: normal; line-height: 1.2;"
-    >
-      <div class="text-[11px] font-normal">${start} - ${end}</div>
-      <div class="text-[12px] font-semibold">${info.event.title}</div>
-    </button>
-  `;
-
-  div.querySelector("button").onclick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    info.view.calendar.trigger("eventClick", {
-      event: info.event,
-      jsEvent: e,
-      view: info.view,
+  const renderEventContent = (info) => {
+    const start = info.event.start.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     });
+
+    const end = info.event.end.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    const div = document.createElement("div");
+    div.className = "fc-custom-event w-full";
+
+    div.innerHTML = `
+      <button>
+        <div>${start} - ${end}</div>
+        <div class="font-semibold">${info.event.title}</div>
+      </button>
+    `;
+
+    div.querySelector("button").onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      info.view.calendar.trigger("eventClick", {
+        event: info.event,
+        jsEvent: e,
+        view: info.view,
+      });
+    };
+
+    return { domNodes: [div] };
   };
 
-  return { domNodes: [div] };
-}}
-
-    /> 
-     </div>
+  // =====================================================
+  // CALENDARIO
+  // =====================================================
+  const renderCalendar = () => (
+    <div className="collab-calendar">
+      <FullCalendar
+        plugins={[timeGridPlugin, interactionPlugin]}
+        initialView="timeGridWeek"
+        firstDay={1}
+        locale={itLocale}
+        allDaySlot={false}
+        slotMinTime="06:00:00"
+        slotMaxTime="22:00:00"
+        events={shifts}
+        height="auto"
+        eventClick={(info) => {
+          if (!info.event.extendedProps.clickable) return;
+          info.jsEvent.preventDefault();
+          info.jsEvent.stopPropagation();
+          openReplacementPopup(info.event);
+        }}
+        eventContent={renderEventContent}
+      />
+    </div>
   );
-
 
   // =====================================================
   // RENDER TAB SOSTITUZIONI
   // =====================================================
   const renderRequests = () => (
     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+
       {/* --- RICHIESTE INVIATE --- */}
       <div className="bg-white p-4 rounded shadow">
         <h2 className="font-bold text-lg mb-2">Richieste inviate</h2>
@@ -269,19 +239,20 @@ export default function MyShifts({ userId }) {
         {sentRequests.map((r) => (
           <div key={r.id} className="border p-2 mb-2 rounded text-sm">
             <div className="font-semibold">
-              {r.shift?.role} – {r.shift?.date}
+              {r.shift_info.role} – {r.shift_info.date}
             </div>
-            <div>
-              Orario: {r.shift?.start_time} – {r.shift?.end_time}
-            </div>
+            <div>Orario: {r.shift_info.start_time} – {r.shift_info.end_time}</div>
+
             {r.partial && (
               <div>
                 Parte richiesta: {r.partial_start} → {r.partial_end}
               </div>
             )}
+
             <div>
-              Verso utente ID: <strong>{r.target_user}</strong>
+              Verso: <strong>{r.target_user_name}</strong>
             </div>
+
             <div>
               Stato:{" "}
               <strong>
@@ -303,26 +274,24 @@ export default function MyShifts({ userId }) {
         <h2 className="font-bold text-lg mb-2">Richieste ricevute</h2>
 
         {receivedRequests.length === 0 && (
-          <div className="text-gray-500 text-sm">
-            Nessuna richiesta ricevuta.
-          </div>
+          <div className="text-gray-500 text-sm">Nessuna richiesta ricevuta.</div>
         )}
 
         {receivedRequests.map((r) => (
           <div key={r.id} className="border p-2 mb-2 rounded text-sm">
             <div className="font-semibold">
-              {r.shift?.role} – {r.shift?.date}
+              {r.shift_info.role} – {r.shift_info.date}
             </div>
-            <div>
-              Orario: {r.shift?.start_time} – {r.shift?.end_time}
-            </div>
+            <div>Orario: {r.shift_info.start_time} – {r.shift_info.end_time}</div>
+
             {r.partial && (
               <div>
                 Parte richiesta: {r.partial_start} → {r.partial_end}
               </div>
             )}
+
             <div>
-              Richiesta da utente ID: <strong>{r.requester}</strong>
+              Richiesta da: <strong>{r.requester_name}</strong>
             </div>
 
             <div className="flex gap-2 mt-2">
@@ -346,19 +315,22 @@ export default function MyShifts({ userId }) {
     </div>
   );
 
+
   // =====================================================
-  // POPUP SOSTITUZIONE
+  // POPUP (identico admin)
   // =====================================================
   const renderPopup = () => {
     if (!selectedShift) return null;
 
     const shiftStart = new Date(selectedShift.start);
     const shiftEnd = new Date(selectedShift.end);
+
     const startLabel = shiftStart.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     });
+
     const endLabel = shiftEnd.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
@@ -366,9 +338,9 @@ export default function MyShifts({ userId }) {
     });
 
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-        <div className="bg-white rounded shadow p-6 w-[420px]">
-          {/* STEP 1 — scelta azione */}
+      <div id="popup-overlay-shifts">
+        <div className="popup">
+          {/* STEP 1 */}
           {step === "choose-type" && (
             <>
               <h2 className="font-bold text-lg mb-3">
@@ -378,7 +350,6 @@ export default function MyShifts({ userId }) {
                 Seleziona cosa vuoi fare con questo turno.
               </p>
 
-              {/* Azione principale: richiesta sostituzione */}
               <button
                 className="w-full bg-blue-500 text-white px-3 py-2 rounded mb-2"
                 onClick={() => {
@@ -389,20 +360,12 @@ export default function MyShifts({ userId }) {
                 📢 Richiedi sostituzione
               </button>
 
-              {/* Dummy 1 */}
-              <button
-                className="w-full bg-gray-200 text-gray-700 px-3 py-2 rounded mb-2"
-                onClick={() => alert("Funzione non ancora disponibile")}
-              >
-                ⭐ Azione futura 1 (dummy)
+              <button className="w-full bg-gray-200 text-gray-700 px-3 py-2 rounded mb-2">
+                ⭐ Azione futura 1
               </button>
 
-              {/* Dummy 2 */}
-              <button
-                className="w-full bg-gray-200 text-gray-700 px-3 py-2 rounded"
-                onClick={() => alert("Funzione non ancora disponibile")}
-              >
-                ⚙️ Azione futura 2 (dummy)
+              <button className="w-full bg-gray-200 text-gray-700 px-3 py-2 rounded">
+                ⚙️ Azione futura 2
               </button>
 
               <button
@@ -417,7 +380,7 @@ export default function MyShifts({ userId }) {
             </>
           )}
 
-          {/* STEP 1b — intero turno / parte del turno */}
+          {/* STEP 1b */}
           {step === "choose-full-or-partial" && (
             <>
               <h2 className="font-bold text-lg mb-3">Richiedi sostituzione</h2>
@@ -439,8 +402,8 @@ export default function MyShifts({ userId }) {
                 className="w-full bg-orange-500 text-white px-3 py-2 rounded"
                 onClick={() => {
                   setPartial(true);
-                  setPartialStart(startLabel.replace(".", ":").slice(0, 5));
-                  setPartialEnd(endLabel.replace(".", ":").slice(0, 5));
+                  setPartialStart(startLabel.slice(0, 5));
+                  setPartialEnd(endLabel.slice(0, 5));
                   setStep("partial-time");
                 }}
               >
@@ -459,13 +422,10 @@ export default function MyShifts({ userId }) {
             </>
           )}
 
-          {/* STEP 2 — inserisci orari parziali */}
+          {/* STEP 2 */}
           {step === "partial-time" && (
             <>
               <h2 className="font-bold mb-4">Seleziona orario da coprire</h2>
-              <p className="text-xs text-gray-500 mb-2">
-                Turno originale: {startLabel} – {endLabel}
-              </p>
 
               <label className="block text-sm mb-1">Inizio</label>
               <input
@@ -502,17 +462,12 @@ export default function MyShifts({ userId }) {
             </>
           )}
 
-          {/* STEP 3 — scegli collaboratori */}
+          {/* STEP 3 */}
           {step === "choose-users" && (
             <>
               <h2 className="font-bold mb-4">Seleziona collaboratori</h2>
 
               <div className="max-h-48 overflow-y-auto mb-4 border rounded p-2 text-sm">
-                {collaborators.length === 0 && (
-                  <div className="text-gray-500">
-                    Nessun altro collaboratore disponibile.
-                  </div>
-                )}
                 {collaborators.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 mb-1">
                     <input
@@ -532,11 +487,7 @@ export default function MyShifts({ userId }) {
                     />
                     <span>
                       {u.username}{" "}
-                      {u.role ? (
-                        <span className="text-xs text-gray-500">
-                          ({u.role})
-                        </span>
-                      ) : null}
+                      <span className="text-xs text-gray-500">({u.role})</span>
                     </span>
                   </label>
                 ))}
@@ -570,7 +521,7 @@ export default function MyShifts({ userId }) {
   // =====================================================
   return (
     <div className="p-6 myshifts-wrapper">
-      {/* --- TABS --- */}
+      {/* TABS */}
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setActiveTab("shifts")}
@@ -595,10 +546,7 @@ export default function MyShifts({ userId }) {
         </button>
       </div>
 
-      {/* --- CONTENUTO TAB --- */}
       {activeTab === "shifts" ? renderCalendar() : renderRequests()}
-
-      {/* --- POPUP SOSTITUZIONE --- */}
       {renderPopup()}
     </div>
   );

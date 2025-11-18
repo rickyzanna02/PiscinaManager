@@ -420,7 +420,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
             req.save(update_fields=["status"])
             return Response({'message': 'Richiesta rifiutata'}, status=200)
 
-        # ---- ACCETTA ----
+       # ---- ACCETTA ----
         req.status = 'accepted'
         req.save(update_fields=["status"])
 
@@ -429,6 +429,26 @@ class ShiftViewSet(viewsets.ModelViewSet):
         other_reqs.update(status='rejected')
 
         shift = req.shift
+
+        # 🔥 1) Aggiorna il turno reale
+        shift.user = req.target_user
+        shift.save(update_fields=["user"])
+
+        # 🔥 2) Aggiorna il TEMPLATE SHIFT corrispondente
+        from .models import TemplateShift
+
+        template = TemplateShift.objects.filter(
+            user=req.requester,                 # vecchio assegnato
+            weekday=shift.date.weekday(),       # stesso giorno settimana
+            start_time=shift.start_time,
+            end_time=shift.end_time,
+            category=shift.role                     # stesso ruolo
+        ).first()
+
+        if template:
+            template.user = req.target_user     # assegna al nuovo sostituto
+            template.save(update_fields=["user"])
+
 
         # -----------------------------------------------------
         # 🔵 SOSTITUZIONE TOTALE
