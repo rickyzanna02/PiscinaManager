@@ -65,10 +65,10 @@ class Shift(models.Model):
 
 class TemplateShift(models.Model):
     CATEGORY_CHOICES = [
-        ('bagnini', 'Bagnini'),
-        ('istruttori', 'Istruttori'),
+        ('bagnino', 'Bagnino'),
+        ('istruttore', 'Istruttore'),
         ('segreteria', 'Segreteria'),
-        ('pulizie', 'Pulizie'),
+        ('pulizia', 'Pulizia'),
     ]
 
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)

@@ -34,7 +34,7 @@ export default function MyShifts({ userId }) {
     .then((res) => {
       const mapped = res.data.map((s) => {
         // colore base
-        let color = s.approved ? "#4ade80" : "#facc15";
+        let color = "#4ade80"; // verde
         let clickable = true;
         let title = s.role;
 
@@ -204,38 +204,48 @@ export default function MyShifts({ userId }) {
         openReplacementPopup(info.event);
       }}
       eventContent={(info) => {
-        const start = info.event.start.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
+  const start = info.event.start.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
-        const end = info.event.end.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
+  const end = info.event.end.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 
-        const div = document.createElement("div");
-        div.className = "myshift-event-btn";
+  const div = document.createElement("div");
+  div.className = "fc-custom-event flex flex-col items-start text-left w-full";
 
-        div.innerHTML = `
-          <div><strong>${start} - ${end}</strong></div>
-          <div>${info.event.title}</div>
-        `;
+  div.innerHTML = `
+    <button 
+      class="
+        text-[12px] font-semibold bg-white/90 hover:bg-white 
+        text-gray-800 border border-gray-300 rounded-md 
+        px-2 py-1 leading-tight shadow-sm transition w-full
+      "
+      style="white-space: normal; line-height: 1.2;"
+    >
+      <div class="text-[11px] font-normal">${start} - ${end}</div>
+      <div class="text-[12px] font-semibold">${info.event.title}</div>
+    </button>
+  `;
 
-        div.onclick = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          info.view.calendar.trigger("eventClick", {
-            event: info.event,
-            jsEvent: e,
-            view: info.view,
-          });
-        };
+  div.querySelector("button").onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    info.view.calendar.trigger("eventClick", {
+      event: info.event,
+      jsEvent: e,
+      view: info.view,
+    });
+  };
 
-        return { domNodes: [div] };
-      }}
+  return { domNodes: [div] };
+}}
+
     /> 
      </div>
   );

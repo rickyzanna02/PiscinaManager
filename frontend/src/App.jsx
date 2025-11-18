@@ -6,7 +6,7 @@ import api from "./api";
 import itLocale from "@fullcalendar/core/locales/it";
 
 export default function App() {
-  const [category, setCategory] = useState("bagnini");
+  const [category, setCategory] = useState("bagnino");
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [calendarKey, setCalendarKey] = useState(0);
@@ -266,7 +266,7 @@ export default function App() {
     }
 
     const payload = {
-      category: "istruttori",
+      category: "istruttore",
       user,
       weekday,
       start_time,
@@ -331,13 +331,13 @@ const renderCalendar = () => (
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          <option value="bagnini">Bagnini</option>
-          <option value="istruttori">Istruttori</option>
+          <option value="bagnino">Bagnini</option>
+          <option value="istruttore">Istruttori</option>
           <option value="segreteria">Segreteria</option>
-          <option value="pulizie">Pulizie</option>
+          <option value="pulizia">Pulizie</option>
         </select>
 
-        {category === "istruttori" && (
+        {category === "istruttore" && (
         <>
           <button
             onClick={openCourseModal}
@@ -414,7 +414,7 @@ const renderCalendar = () => (
       {selectedSlot && (
         <div id="popup-overlay">
           <div className="popup">
-            {category === "istruttori" ? (
+            {category === "istruttore" ? (
               <>
                 <h2 className="text-lg font-bold mb-3">Inserisci corso</h2>
 
@@ -501,7 +501,7 @@ const renderCalendar = () => (
                       }
 
                       const payload = {
-                        category: "istruttori",
+                        category: "istruttore",
                         user: userId,
                         weekday,
                         start_time: start,

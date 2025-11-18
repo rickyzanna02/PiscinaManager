@@ -68,7 +68,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 # evita duplicati se già generato
                 shift, created = Shift.objects.get_or_create(
                     user=template.user,
-                    role=template.category[:-1],  # es. "bagnini" → "bagnino" (anche se non perfetto)
+                    role=template.category,  # NB: qui usi direttamente la stringa category
                     date=current_date,
                     start_time=template.start_time,
                     end_time=template.end_time,
@@ -116,7 +116,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 if not template.user:
                     continue
 
-                role = template.category[:-1]  # "bagnini" → "bagnino" (come sopra)
+                role = template.category
                 key = (current_date, template.user.id, role)
                 template_keys.add(key)
 
