@@ -14,7 +14,7 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // NUOVO: stato per popup "Inserisci corso" (istruttori)
+  // NUOVO: stato per popup "Inserisci corso" (istruttore)
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [courseForm, setCourseForm] = useState({
     weekday: 0,              // 0=Lun ... 6=Dom (BACKEND)
@@ -237,7 +237,7 @@ export default function App() {
     );
   };
 
-  // ====== INSERISCI CORSO (solo per categoria "istruttori") ======
+  // ====== INSERISCI CORSO (solo per categoria "istruttore") ======
   const openCourseModal = () => {
     setCourseForm({
       weekday: 0,
@@ -636,8 +636,8 @@ const renderCalendar = () => (
         </div>
       )}
 
-      {/* --- NUOVO: Popup "Inserisci corso" (solo istruttori, da bottone) --- */}
-      {showCourseModal && category === "istruttori" && (
+      {/* --- NUOVO: Popup "Inserisci corso" (solo istruttore, da bottone) --- */}
+      {showCourseModal && category === "istruttore" && (
         <div id="popup-overlay">
           <div className="popup">
             <h2 className="text-lg font-bold mb-3">Inserisci corso</h2>
@@ -874,7 +874,7 @@ const renderCalendar = () => (
                     const end = addMinutes(start, minutes);
 
                     await api.post("templates/", {
-                      category: "istruttori",
+                      category: "istruttore",
                       user: quickForm.user,
                       weekday,
                       start_time: start,
