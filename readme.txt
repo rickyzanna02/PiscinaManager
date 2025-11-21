@@ -337,10 +337,10 @@ vorrei ora gestire le sostituzioni parziali. immaginiamo di avere un turno dalle
 
 DA FARE:
 - gestire bottoni pubblica settimana/mese: se non ci snoo modifiche renderli non cliccabili ad esempio
-- problema: sostituzioni multiple: SE ne accetto una spariscono tutte.
-- problema: in caso di sostituzioni multiple sullo stesso turno è capitato che un parte di turno resti in shift ma non in template shift: fare prove
+- admin tab turni reali vedo solo settiman corrente e non tutto
 
 
+S
 
 
 

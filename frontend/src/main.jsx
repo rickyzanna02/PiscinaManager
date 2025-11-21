@@ -4,13 +4,14 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App";
 import CollaboratorePage from "./CollaboratorePage";
 import "./index.css";
+import AdminPage from "./AdminPage";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/admin" />} />
-        <Route path="/admin" element={<App />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/collaboratore" element={<CollaboratorePage />} />
       </Routes>
     </BrowserRouter>
