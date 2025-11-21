@@ -1,0 +1,8 @@
+Django==5.2.8
+djangorestframework==3.16.1
+django-cors-headers
+
+# per frontend
+# installare nodejs da sito
+# npm install
+# npm install -g vite
