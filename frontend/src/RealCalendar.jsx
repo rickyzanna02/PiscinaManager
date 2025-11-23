@@ -5,24 +5,6 @@ import interactionPlugin from "@fullcalendar/interaction";
 import itLocale from "@fullcalendar/core/locales/it";
 import api from "./api";
 
-// Utility: trova il lunedì della settimana di una certa data
-function getMonday(d) {
-  const date = new Date(d);
-  const day = date.getDay(); // 0=Dom, 1=Lun, ...
-  const diff = (day === 0 ? -6 : 1) - day; // porta a lunedì
-  date.setDate(date.getDate() + diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-// Utility: formatta yyyy-mm-dd
-function toISODate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 // Utility: dd/mm/yyyy
 function formatIT(d) {
   return d.toLocaleDateString("it-IT", {
@@ -46,9 +28,6 @@ export default function RealCalendar() {
   const [events, setEvents] = useState([]);
   const [calendarKey, setCalendarKey] = useState(0);
 
-  const [currentWeekStart, setCurrentWeekStart] = useState(() =>
-    getMonday(new Date())
-  );
   const [loading, setLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState("");
 
@@ -67,113 +46,83 @@ export default function RealCalendar() {
   }, []);
 
   const usernameFromUserField = (userField) => {
-  if (!userField) return "—";
-  if (typeof userField === "object" && userField.username) return userField.username;
-  const u = users.find((x) => x.id === userField);
-  return u ? u.username : `User #${userField}`;
-};
-
+    if (!userField) return "—";
+    if (typeof userField === "object" && userField.username)
+      return userField.username;
+    const u = users.find((x) => x.id === userField);
+    return u ? u.username : `User #${userField}`;
+  };
 
   // ==========================
-  // CARICA TURNI REALI DELLA SETTIMANA
+  // CARICA TUTTI I TURNI REALI
   // ==========================
-  const loadWeekShifts = (weekStartDate) => {
-  setLoading(true);
+  const loadAllShifts = () => {
+    setLoading(true);
 
-  // calcola settimana
-  const start = new Date(weekStartDate);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
+    api
+      .get("shifts/")
+      .then((res) => {
+        const all = Array.isArray(res.data) ? res.data : [];
 
-  api.get("shifts/")
-    .then((res) => {
-      const all = Array.isArray(res.data) ? res.data : [];
+        const mapped = all.map((s) => {
+          const titleUser = usernameFromUserField(s.user);
+          const baseTitle = `${titleUser} – ${s.role}`;
 
-      // FILTRA SOLO TURNI DELLA SETTIMANA
-      const filtered = all.filter((s) => {
-        const d = new Date(s.date);
-        return d >= start && d <= end;
-      });
+          // Colori base
+          let color = "#4ade80";
+          let borderColor = "#16a34a";
+          let textColor = "#000000";
 
-      const mapped = filtered.map((s) => {
-        const titleUser = usernameFromUserField(s.user);
-        const baseTitle = `${titleUser} – ${s.role}`;
-
-        // Colori base
-        let color = "#4ade80";
-        let borderColor = "#16a34a";
-        let textColor = "#000000";
-
-        if (s.replacement_info?.accepted) {
-          if (s.replacement_info.partial) {
-            color = "#bfdbfe"; 
-            borderColor = "#1d4ed8";
-          } else {
-            color = "#ddd6fe"; 
-            borderColor = "#7c3aed";
-          }
-        }
-
-        return {
-          id: s.id,
-          title: baseTitle,
-          start: `${s.date}T${s.start_time}`,
-          end: `${s.date}T${s.end_time}`,
-          backgroundColor: color,
-          borderColor,
-          textColor,
-          extendedProps: {
-            raw: {
-              ...s,
-              user_id: s.user?.id ?? null,
-              user_username: s.user?.username ?? "—"
+          if (s.replacement_info?.accepted) {
+            if (s.replacement_info.partial) {
+              color = "#bfdbfe";
+              borderColor = "#1d4ed8";
+            } else {
+              color = "#ddd6fe";
+              borderColor = "#7c3aed";
             }
-          },
-        };
-      });
+          }
 
-      setEvents(mapped);
-      setCalendarKey(k => k + 1);
-    })
-    .catch((err) => {
-      console.error("Errore caricamento turni:", err);
-      alert("Errore nel caricamento dei turni reali.");
-    })
-    .finally(() => setLoading(false));
-};
+          return {
+            id: s.id,
+            title: baseTitle,
+            start: `${s.date}T${s.start_time}`,
+            end: `${s.date}T${s.end_time}`,
+            backgroundColor: color,
+            borderColor,
+            textColor,
+            extendedProps: {
+              raw: {
+                ...s,
+                user_id: s.user?.id ?? null,
+                user_username: (() => {
+                  if (typeof s.user === "object" && s.user.username) return s.user.username;
+                  const u = users.find((x) => x.id === s.user);
+                  return u ? u.username : "—";
+                })(),
 
+              },
+            },
+          };
+        });
 
-  // carica quando cambia settimana o quando ho gli utenti
+        setEvents(mapped);
+        setCalendarKey((k) => k + 1);
+      })
+      .catch((err) => {
+        console.error("Errore caricamento turni:", err);
+        alert("Errore nel caricamento dei turni reali.");
+      })
+      .finally(() => setLoading(false));
+  };
+
+  // carica quando ho gli utenti (una volta all’inizio o se cambiano)
   useEffect(() => {
-    loadWeekShifts(currentWeekStart);
+    if (users.length > 0) {
+      loadAllShifts();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWeekStart, users]);
-
-  // ==========================
-  // NAVIGAZIONE SETTIMANA
-  // ==========================
-  const goPrevWeek = () => {
-    const d = new Date(currentWeekStart);
-    d.setDate(d.getDate() - 7);
-    setCurrentWeekStart(getMonday(d));
-  };
-
-  const goNextWeek = () => {
-    const d = new Date(currentWeekStart);
-    d.setDate(d.getDate() + 7);
-    setCurrentWeekStart(getMonday(d));
-  };
-
-  const goThisWeek = () => {
-    setCurrentWeekStart(getMonday(new Date()));
-  };
-
-  const weekLabel = (() => {
-    const start = currentWeekStart;
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    return `${formatIT(start)} → ${formatIT(end)}`;
-  })();
+  }, [users]);
 
   // ==========================
   // EVENT CLICK → POPUP
@@ -201,41 +150,43 @@ export default function RealCalendar() {
     setIsEditing(false);
   };
 
+  // ==========================
+  // RENDER EVENTO
+  // ==========================
   const renderEventContent = (eventInfo) => {
-    const raw = eventInfo.event.extendedProps.raw || {};
-    const start =
-      raw.start_time ||
-      (eventInfo.event.startStr
-        ? eventInfo.event.startStr.slice(11, 16)
-        : "");
-    const end =
-      raw.end_time ||
-      (eventInfo.event.endStr ? eventInfo.event.endStr.slice(11, 16) : "");
-    const timeLabel = `${start} - ${end}`;
-    const titleUser = raw.user_username;
+  const raw = eventInfo.event.extendedProps.raw || {};
 
-    const role = raw.role || "";
-    const label = `${titleUser} – ${role}`;
+  // Rimuove i secondi -> 06:00
+  const formatTime = (t) => (t ? t.slice(0, 5) : "");
 
-    const onButtonClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openManageFromEvent(eventInfo.event);
-    };
+  const start = formatTime(raw.start_time);
+  const end = formatTime(raw.end_time);
+  const timeLabel = `${start} - ${end}`;
 
-    return (
-      <div className="fc-custom-event flex flex-col items-start text-left">
-        <button
-          onClick={onButtonClick}
-          className="text-[12px] font-semibold bg-white/90 hover:bg-white text-gray-800 border border-gray-300 rounded-md px-2 py-1 leading-tight shadow-sm transition w-3/4"
-          style={{ whiteSpace: "normal", lineHeight: "1.2" }}
-        >
-          <div className="text-[11px] font-normal">{timeLabel}</div>
-          <div className="text-[12px] font-semibold">{label}</div>
-        </button>
-      </div>
-    );
+  // Mostra il nome utente correttamente
+  const titleUser = raw.user_username || "—";
+  const role = raw.role || "";
+  const label = `${titleUser} – ${role}`;
+
+  const onButtonClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openManageFromEvent(eventInfo.event);
   };
+
+  return (
+    <div className="fc-custom-event flex flex-col items-start text-left">
+      <button
+        onClick={onButtonClick}
+        className="text-[12px] font-semibold bg-white/90 hover:bg-white text-gray-800 border border-gray-300 rounded-md px-2 py-1 leading-tight shadow-sm transition w-3/4"
+        style={{ whiteSpace: "normal", lineHeight: "1.2" }}
+      >
+        <div className="text-[11px] font-normal">{timeLabel}</div>
+        <div className="text-[12px] font-semibold">{label}</div>
+      </button>
+    </div>
+  );
+};
 
   // ==========================
   // AZIONI POPUP: UPDATE / DELETE
@@ -248,7 +199,7 @@ export default function RealCalendar() {
     try {
       await api.delete(`shifts/${selectedEvent.id}/`);
       setSelectedEvent(null);
-      loadWeekShifts(currentWeekStart);
+      loadAllShifts(); // ricarica tutti i turni dopo l’eliminazione
     } catch (e) {
       console.error(e);
       alert("Errore nell'eliminazione del turno.");
@@ -270,7 +221,7 @@ export default function RealCalendar() {
       await api.patch(`shifts/${selectedEvent.id}/`, payload);
       setIsEditing(false);
       setSelectedEvent(null);
-      loadWeekShifts(currentWeekStart);
+      loadAllShifts(); // ricarica tutti i turni dopo il salvataggio
     } catch (e) {
       console.error(e);
       alert("Errore nel salvataggio del turno.");
@@ -393,32 +344,12 @@ export default function RealCalendar() {
                 </div>
               </div>
 
-              {/* Collaboratore */}
+              {/* Ruolo */}
               <label className="block mb-1 text-sm font-semibold">
-                Collaboratore
+                Ruolo
               </label>
               <select
                 className="w-full border p-2 rounded mb-3"
-                value={selectedEvent.user || ""}
-                onChange={(e) =>
-                  setSelectedEvent((prev) => ({
-                    ...prev,
-                    user: parseInt(e.target.value, 10),
-                  }))
-                }
-              >
-                <option value="">-- Seleziona --</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.username} ({u.role})
-                  </option>
-                ))}
-              </select>
-
-              {/* Ruolo */}
-              <label className="block mb-1 text-sm font-semibold">Ruolo</label>
-              <select
-                className="w-full border p-2 rounded mb-4"
                 value={selectedEvent.role}
                 onChange={(e) =>
                   setSelectedEvent((prev) => ({
@@ -473,49 +404,25 @@ export default function RealCalendar() {
 
       {/* Barra controlli */}
       <div className="flex items-center flex-wrap gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <button
-            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
-            onClick={goPrevWeek}
-          >
-            ◀ Settimana precedente
-          </button>
-          <button
-            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
-            onClick={goThisWeek}
-          >
-            Oggi
-          </button>
-          <button
-            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
-            onClick={goNextWeek}
-          >
-            Settimana successiva ▶
-          </button>
-        </div>
-
-        <div className="font-semibold text-sm px-3 py-1 bg-gray-100 rounded">
-          {weekLabel}
-        </div>
-
         {/* Filtro ruolo */}
-        <select
-          className="border p-2 rounded ml-auto"
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-        >
-          {ROLE_OPTIONS.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </select>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm font-semibold">Ruolo:</span>
+          <select
+            className="border p-2 rounded"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {loading && (
-        <div className="mb-2 text-sm text-gray-500">
-          Caricamento turni...
-        </div>
+        <div className="mb-2 text-sm text-gray-500">Caricamento turni...</div>
       )}
 
       {/* Calendario */}

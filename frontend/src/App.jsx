@@ -32,6 +32,62 @@ export default function App() {
     user: "",
   });
 
+  // === PUBBLICAZIONE MULTI-SETTIMANA ===
+const [showPublishModal, setShowPublishModal] = useState(false);
+const [selectedMonth, setSelectedMonth] = useState(() => new Date());
+const [selectedWeeks, setSelectedWeeks] = useState([]);
+
+// Ritorna tutte le settimane del mese come array di oggetti:
+// { label: "Settimana 1 (1–7)", start: Date, end: Date }
+const getWeeksOfMonth = (year, month) => {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const weeks = [];
+  let current = new Date(firstDay);
+
+  // Sposta a lunedì
+  current.setDate(current.getDate() - ((current.getDay() + 6) % 7));
+
+  let index = 1;
+
+  while (current <= lastDay) {
+    const weekStart = new Date(current);
+    const weekEnd = new Date(current);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    // Mostra solo le settimane che toccano il mese
+    if (weekEnd >= firstDay && weekStart <= lastDay) {
+      weeks.push({
+        id: `${year}-${month + 1}-${index}`,
+        label: `Settimana ${index} (${weekStart.getDate()}–${weekEnd.getDate()})`,
+        start: new Date(weekStart),
+        end: new Date(weekEnd),
+      });
+      index++;
+    }
+
+    current.setDate(current.getDate() + 7);
+  }
+
+  return weeks;
+};
+
+const changeMonth = (dir) => {
+  setSelectedMonth((prev) => {
+    const d = new Date(prev);
+    d.setMonth(d.getMonth() + dir);
+    return d;
+  });
+};
+
+const toggleWeek = (id) => {
+  setSelectedWeeks((prev) =>
+    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  );
+};
+
+
 
   // mappa tipi corso → durata minuti + etichetta
   const COURSE_TYPES = {
@@ -286,38 +342,53 @@ export default function App() {
     
   };
 const renderCalendar = () => (
-      <div className="admin-calendar">
-        <FullCalendar
-          key={calendarKey}
-          plugins={[timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          firstDay={1}
-          locale={itLocale}
-          slotLabelFormat={{
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }}
-          dayHeaderFormat={{
-            weekday: "short",
-            day: "2-digit",
-            month: "2-digit",
-          }}
-          selectable={true}
-          selectMirror={true}
-          selectOverlap={true}
-          eventOverlap={true}
-          editable={false}
-          allDaySlot={false}
-          events={events}
-          select={handleSelect}
-          eventContent={renderEventContent}
-          slotMinTime="06:00:00"
-          slotMaxTime="22:00:00"
-          height="auto"
-        />
-      </div>
-    );
+  <div className="admin-calendar">
+    <FullCalendar
+      key={calendarKey}
+      plugins={[timeGridPlugin, interactionPlugin]}
+      initialView="timeGridWeek"
+
+      // 👇 Fissa una settimana statica senza mostrarla (data irrilevante)
+      initialDate="2024-01-01"
+
+      // 👇 Rimuove navigazione
+      headerToolbar={{
+        left: '',
+        center: '',
+        right: ''
+      }}
+      footerToolbar={false}
+      navLinks={false}
+
+      // 👇 Mostra solo "Lun, Mar, Mer..." senza numeri
+      dayHeaderFormat={{ weekday: "short" }}
+
+      firstDay={1}
+      locale={itLocale}
+      slotLabelFormat={{
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }}
+      selectable={true}
+      selectMirror={true}
+      selectOverlap={true}
+      eventOverlap={true}
+      editable={false}
+      allDaySlot={false}
+
+      events={events}
+      select={handleSelect}
+      eventContent={renderEventContent}
+
+      slotMinTime="06:00:00"
+      slotMaxTime="22:00:00"
+      height="auto"
+    />
+  </div>
+);
+
+
 
 
   return (
@@ -364,47 +435,116 @@ const renderCalendar = () => (
         </>
       )}
 
+      {/*pulsante pubblicazione*/}
+      <button
+      onClick={() => {
+        setSelectedWeeks([]);
+        setShowPublishModal(true);
+      }}
+      className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded"
+    >
+      📢 Pubblica
+    </button>
 
 
-
-        {/* 👇 Pulsanti pubblicazione */}
-        <button
-          onClick={async () => {
-            try {
-              await api.post("shifts/publish_week/", { category });
-              alert("Pubblicazione completata");
-              loadEvents();
-            } catch (e) {
-              console.error(e);
-              alert("Errore nella pubblicazione della settimana");
-            }
-          }}
-          className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded"
-        >
-          📆 Pubblica settimana
-        </button>
-
-        <button
-          onClick={async () => {
-            try {
-              await api.post("shifts/publish_month/", { category });
-              alert("Pubblicazione completata");
-              loadEvents();
-            } catch (e) {
-              console.error(e);
-              alert("Errore nella pubblicazione del mese");
-            }
-          }}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded"
-        >
-          📅 Pubblica mese
-        </button>
+       
       </div>
 
       {/* --- Calendario --- */}
       {renderCalendar()}
 
-      
+      {/* --- popup pubblicazione  --- */}
+      {showPublishModal && (
+        <div id="popup-overlay">
+          <div className="popup w-[400px]">
+            <h2 className="text-xl font-bold mb-3 text-center">
+              Pubblicazione turni
+            </h2>
+
+            {/* --- NAVIGAZIONE MESE --- */}
+            <div className="flex justify-between items-center mb-4">
+              <button
+                className="px-3 py-1 bg-gray-200 rounded"
+                onClick={() => changeMonth(-1)}
+              >
+                ◀
+              </button>
+
+              <span className="text-lg font-semibold">
+                {selectedMonth.toLocaleDateString("it-IT", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
+
+              <button
+                className="px-3 py-1 bg-gray-200 rounded"
+                onClick={() => changeMonth(1)}
+              >
+                ▶
+              </button>
+            </div>
+
+            {/* --- LISTA SETTIMANE --- */}
+            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto mb-4">
+              {getWeeksOfMonth(
+                selectedMonth.getFullYear(),
+                selectedMonth.getMonth()
+              ).map((week) => (
+                <label key={week.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedWeeks.includes(week.id)}
+                    onChange={() => toggleWeek(week.id)}
+                  />
+                  {week.label}
+                </label>
+              ))}
+            </div>
+
+            {/* --- BOTTONI --- */}
+            <button
+  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded w-full mb-2"
+  onClick={async () => {
+    try {
+      const weeksPayload = getWeeksOfMonth(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth()
+      )
+      .filter(w => selectedWeeks.includes(w.id))
+      .map(w => ({
+        start: w.start.toISOString().slice(0,10),
+        end: w.end.toISOString().slice(0,10),
+      }));
+
+      const res = await api.post("shifts/publish/", {
+        weeks: weeksPayload
+      });
+
+      alert("Pubblicazione completata!");
+      console.log("RESPONSE:", res.data);
+
+      setShowPublishModal(false);
+
+    } catch (e) {
+      console.error(e);
+      alert("Errore nella pubblicazione");
+    }
+  }}
+>
+  Pubblica
+</button>
+
+
+            <button
+              className="bg-gray-300 hover:bg-gray-400 px-3 py-2 rounded w-full"
+              onClick={() => setShowPublishModal(false)}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
 
 
       {/* ... resto identico al tuo (popup assegnazione, gestione turno e inserisci corso) ... */}

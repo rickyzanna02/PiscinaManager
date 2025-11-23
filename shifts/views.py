@@ -79,171 +79,85 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
         return Response({'created': created_count})
 
-    # ----------------------------------------------------------
-    # PUBBLICA SETTIMANA (crea/aggiorna/elimina)
-    # ----------------------------------------------------------
     @action(detail=False, methods=['post'])
-    def publish_week(self, request):
-        """
-        Crea, aggiorna o rimuove i turni reali per la settimana specificata.
-        Se non viene indicata una data, usa la settimana corrente.
-        """
-        try:
-            start_str = request.data.get('start_date')
-            if start_str:
-                start_date = date.fromisoformat(start_str)
-            else:
-                today = date.today()
-                start_date = today - timedelta(days=today.weekday())  # lunedì corrente
-        except Exception:
-            return Response({'error': 'Data non valida'}, status=status.HTTP_400_BAD_REQUEST)
+    def publish(self, request):
+        weeks = request.data.get("weeks", [])
+        if not isinstance(weeks, list) or not weeks:
+            return Response({"error": "Lista 'weeks' mancante o vuota"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        end_date = start_date + timedelta(days=6)
-        created_count, updated_count, deleted_count = 0, 0, 0
+        total_created = 0
+        total_updated = 0
+        total_deleted = 0
 
-        # Carica turni già pubblicati in quella settimana
-        existing_shifts = Shift.objects.filter(date__range=[start_date, end_date])
-        existing_map = {(s.date, s.user_id, s.role): s for s in existing_shifts}
+        debug_log = []  # <--- LOG DIAGNOSTICO IMPORTANTISSIMO
 
-        # Genera da template
-        template_keys = set()
-        for day in range(7):
-            current_date = start_date + timedelta(days=day)
-            weekday = current_date.weekday()  # 0=lun, 6=dom
-            templates = TemplateShift.objects.filter(weekday=weekday)
+        for week in weeks:
+            try:
+                start_date = date.fromisoformat(week["start"])
+                end_date = date.fromisoformat(week["end"])
+            except Exception:
+                return Response({"error": "Formato data errato"}, status=400)
 
-            for template in templates:
-                if not template.user:
-                    continue
+            debug_log.append(f"Settimana: {start_date} -> {end_date}")
 
-                role = template.category
-                key = (current_date, template.user.id, role)
-                template_keys.add(key)
+            existing_shifts = Shift.objects.filter(date__range=[start_date, end_date])
+            existing_map = {(s.date, s.user_id, s.role): s for s in existing_shifts}
+            template_keys = set()
 
-                if key in existing_map:
-                    shift = existing_map[key]
-                    if (
-                        shift.start_time != template.start_time
-                        or shift.end_time != template.end_time
-                        or shift.course_id != (template.course.id if template.course else None)
-                    ):
-                        shift.start_time = template.start_time
-                        shift.end_time = template.end_time
-                        shift.course = template.course
-                        shift.save(update_fields=["start_time", "end_time", "course"])
-                        updated_count += 1
-                else:
-                    Shift.objects.create(
-                        user=template.user,
-                        role=role,
-                        date=current_date,
-                        start_time=template.start_time,
-                        end_time=template.end_time,
-                        course=template.course
-                    )
-                    created_count += 1
+            # GENERA TURNO PER OGNI GIORNO DELLA SETTIMANA
+            for i in range(7):
+                current_date = start_date + timedelta(days=i)
+                weekday = current_date.weekday()
 
-        # Elimina turni che non esistono più nel template
-        for key, shift in existing_map.items():
-            if key not in template_keys:
-                shift.delete()
-                deleted_count += 1
+                # --- DEBUG WEEKDAY ---
+                debug_log.append(f"Giorno: {current_date} (weekday={weekday})")
+
+                templates = TemplateShift.objects.filter(weekday=weekday)
+
+                debug_log.append(f"Trovati {templates.count()} template per weekday {weekday}")
+
+                for template in templates:
+                    key = (current_date, template.user_id, template.category)
+                    template_keys.add(key)
+
+                    if key in existing_map:
+                        shift = existing_map[key]
+                        if (shift.start_time != template.start_time or
+                            shift.end_time != template.end_time or
+                            shift.course_id != (template.course.id if template.course else None)):
+
+                            shift.start_time = template.start_time
+                            shift.end_time = template.end_time
+                            shift.course = template.course
+                            shift.save(update_fields=["start_time", "end_time", "course"])
+                            total_updated += 1
+
+                    else:
+                        Shift.objects.create(
+                            user=template.user,
+                            role=template.category,
+                            date=current_date,
+                            start_time=template.start_time,
+                            end_time=template.end_time,
+                            course=template.course
+                        )
+                        total_created += 1
+
+            for key, shift in existing_map.items():
+                if key not in template_keys:
+                    shift.delete()
+                    total_deleted += 1
 
         return Response({
-            'message': f'Settimana pubblicata ({start_date} → {end_date})',
-            'created': created_count,
-            'updated': updated_count,
-            'deleted': deleted_count
-        }, status=status.HTTP_200_OK)
+            "message": "Pubblicazione completata",
+            "created": total_created,
+            "updated": total_updated,
+            "deleted": total_deleted,
+            "debug": debug_log,   # <---- QUI VEDI ITERAZIONE GIORNO PER GIORNO
+        })
 
-    # ----------------------------------------------------------
-    # PUBBLICA MESE (crea/aggiorna/elimina) per categoria
-    # ----------------------------------------------------------
-    @action(detail=False, methods=['post'])
-    def publish_month(self, request):
-        """
-        Crea, aggiorna o rimuove i turni reali dell'intero mese.
-        Se year/month non sono inviati → usa mese attuale.
-        La pubblicazione avviene solo per la categoria richiesta.
-        """
-        # --- Categoria obbligatoria ---
-        category = request.data.get("category")
-        if not category:
-            return Response({'error': 'Specifica category'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # --- Mese / anno (default: mese corrente) ---
-        today = date.today()
-        try:
-            year = int(request.data.get("year", today.year))
-            month = int(request.data.get("month", today.month))
-        except ValueError:
-            return Response({'error': 'Parametri year/month non validi'}, status=status.HTTP_400_BAD_REQUEST)
-
-        days_in_month = monthrange(year, month)[1]
-        created_count, updated_count, deleted_count = 0, 0, 0
-
-        # --- Turni già pubblicati della categoria ---
-        existing_shifts = Shift.objects.filter(
-            date__year=year,
-            date__month=month,
-            role=category  # NB: qui usi direttamente la stringa category
-        )
-        existing_map = {(s.date, s.user_id, s.role): s for s in existing_shifts}
-        template_keys = set()
-
-        # --- Template SOLO della categoria richiesta ---
-        for day in range(1, days_in_month + 1):
-            current_date = date(year, month, day)
-            weekday = current_date.weekday()
-
-            templates = TemplateShift.objects.filter(
-                weekday=weekday,
-                category=category
-            )
-
-            for template in templates:
-                if not template.user:
-                    continue
-
-                role = template.category
-                key = (current_date, template.user.id, role)
-                template_keys.add(key)
-
-                if key in existing_map:
-                    shift = existing_map[key]
-                    if (
-                        shift.start_time != template.start_time
-                        or shift.end_time != template.end_time
-                        or shift.course_id != (template.course.id if template.course else None)
-                    ):
-                        shift.start_time = template.start_time
-                        shift.end_time = template.end_time
-                        shift.course = template.course
-                        shift.save(update_fields=["start_time", "end_time", "course"])
-                        updated_count += 1
-                else:
-                    Shift.objects.create(
-                        user=template.user,
-                        role=role,
-                        date=current_date,
-                        start_time=template.start_time,
-                        end_time=template.end_time,
-                        course=template.course
-                    )
-                    created_count += 1
-
-        # --- Elimina turni non più presenti nei template ---
-        for key, shift in existing_map.items():
-            if key not in template_keys:
-                shift.delete()
-                deleted_count += 1
-
-        return Response({
-            'message': f'Mese pubblicato ({month}/{year})',
-            'created': created_count,
-            'updated': updated_count,
-            'deleted': deleted_count
-        }, status=status.HTTP_200_OK)
 
     # ----------------------------------------------------------
     # RICHIESTA SOSTITUZIONE "vecchia" (manager → tutti)
