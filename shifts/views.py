@@ -326,6 +326,12 @@ class ShiftViewSet(viewsets.ModelViewSet):
         Query string:
         - user_id (se manca, uso request.user se autenticato)
         - only_pending=true/false (default: true)
+
+        Regole:
+        - pending: sempre visibili ai destinatari
+        - rejected: visibili SOLO al destinatario che ha rifiutato
+        - accepted: visibili SOLO al destinatario che ha accettato
+        - cancelled: NON visibili ai destinatari (richiesta chiusa perché qualcun altro ha accettato)
         """
         user_id = request.query_params.get("user_id")
         if not user_id and request.user and request.user.is_authenticated:
@@ -342,9 +348,13 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
         if only_pending:
             qs = qs.filter(status='pending')
+        #else:
+            # nello storico il destinatario NON vede le richieste 'cancelled'
+        #   qs = qs.exclude(status='cancelled')
 
         ser = ReplacementRequestSerializer(qs, many=True)
         return Response(ser.data, status=200)
+
 
     # ----------------------------------------------------------
     # RISPOSTA A RICHIESTA (ACCONSENTE / RIFIUTA)
@@ -380,6 +390,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 🔴 RIFIUTA
         # -----------------------------------------------------
         if action == "reject":
+            # chi rifiuta vede nello storico stato "rejected"
             req.status = 'rejected'
             req.save(update_fields=["status"])
             return Response({'message': 'Richiesta rifiutata'}, status=200)
@@ -401,7 +412,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 start_time=start,
                 end_time=end,
                 approved=shift.approved,
-                course=shift.course,   # se il campo esiste, lo ereditiamo
+                course=shift.course,
             )
             if user == requester:
                 new_requester_shifts.append(s)
@@ -411,19 +422,23 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 🔵 SOSTITUZIONE TOTALE
         # -----------------------------------------------------
         if not req.partial:
-            # aggiorna solo il turno reale
+            # aggiorna il turno reale (tutto il turno passa al sostituto)
             shift.user = sostituto
             shift.save(update_fields=["user"])
 
-            # tutte le altre richieste su questo turno → rifiutate
-            ReplacementRequest.objects.filter(
-                shift=shift
-            ).exclude(id=req.id).update(status='rejected')
+            # tutte le altre richieste su questo turno → CANCELLED (ma solo se SI È ACCETTATO)
+            other_requests = ReplacementRequest.objects.filter(shift=shift).exclude(id=req.id)
+
+            # Regola corretta:
+            # - Le altre richieste pending → diventano cancelled
+            # - Le richieste già rejected → NON vanno toccate
+            other_requests.filter(status='pending').update(status='cancelled')
+
 
             return Response({'message': 'Sostituzione totale accettata'}, status=200)
 
         # -----------------------------------------------------
-        # 🟣 SOSTITUZIONE PARZIALE (SPLIT SOLO SU SHIFT)
+        # 🟣 SOSTITUZIONE PARZIALE (SPLIT SU SHIFT)
         # -----------------------------------------------------
 
         # 1) tutte le altre richieste collegate allo STESSO turno originario
@@ -440,36 +455,29 @@ class ShiftViewSet(viewsets.ModelViewSet):
         )
         non_overlapping = partial_reqs.exclude(id__in=overlapping.values("id"))
 
-        # 4) rifiuta le parziali sovrapposte
-        overlapping.update(status='rejected')
+        # 4) le parziali SOVRAPPOSTE non possono più essere accettate → CANCELLED
+        overlapping.update(status='cancelled')
 
-        # 5) le totali non hanno senso dopo uno split → rifiutale
-        total_reqs.update(status='rejected')
+        # 5) le totali non hanno più senso dopo lo split → CANCELLED
+        total_reqs.update(status='cancelled')
 
         # 6) spezza il turno reale in 2 o 3 pezzi
 
         # Caso 1 — parte all’inizio (es: 06–12 → 06–10 accettato)
         if part_start == orig_start and part_end < orig_end:
-            # sostituto: [start sost – end sost]
-            create_shift(sostituto, part_start, part_end)
-            # titolare: [fine sost – fine originale]
-            create_shift(requester, part_end, orig_end)
+            create_shift(sostituto, part_start, part_end)      # sostituto
+            create_shift(requester, part_end, orig_end)        # titolare (coda)
 
         # Caso 2 — parte alla fine (es: 06–12 → 10–12 accettato)
         elif part_start > orig_start and part_end == orig_end:
-            # titolare: [inizio originale – inizio sost]
-            create_shift(requester, orig_start, part_start)
-            # sostituto: [inizio sost – fine originale]
-            create_shift(sostituto, part_start, part_end)
+            create_shift(requester, orig_start, part_start)    # titolare (inizio)
+            create_shift(sostituto, part_start, part_end)      # sostituto
 
         # Caso 3 — parte interna (es: 06–12 → 08–10 accettato)
         else:
-            # titolare: pezzo iniziale
-            create_shift(requester, orig_start, part_start)
-            # sostituto: pezzo centrale
-            create_shift(sostituto, part_start, part_end)
-            # titolare: pezzo finale
-            create_shift(requester, part_end, orig_end)
+            create_shift(requester, orig_start, part_start)    # titolare (inizio)
+            create_shift(sostituto, part_start, part_end)      # sostituto
+            create_shift(requester, part_end, orig_end)        # titolare (fine)
 
         # 7) per le richieste NON SOVRAPPOSTE, ricollegale al nuovo turno giusto
         for other in non_overlapping:
@@ -486,15 +494,15 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 other.shift = target_shift
                 other.save(update_fields=["shift"])
             else:
-                # non dovrebbe succedere, ma per sicurezza la rifiutiamo
-                other.status = 'rejected'
+                # per sicurezza, se non troviamo un turno adatto, la annulliamo
+                other.status = 'cancelled'
                 other.save(update_fields=["status"])
 
         # 8) elimina il turno reale originario (ora sostituito dai pezzi)
         shift.delete()
 
         return Response({'message': 'Sostituzione parziale accettata'}, status=200)
-    
+
     
 
     @action(detail=False, methods=['get'])

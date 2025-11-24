@@ -89,8 +89,9 @@ export default function MyShifts({ userId }) {
       .then((res) => setSentRequests(res.data || []));
 
     api
-      .get(`shifts/replacements_received/?user_id=${userId}`)
+      .get(`shifts/replacements_received/?user_id=${userId}&only_pending=false`)
       .then((res) => setReceivedRequests(res.data || []));
+
   };
 
   useEffect(() => {
@@ -241,7 +242,7 @@ export default function MyShifts({ userId }) {
             <div className="font-semibold">
               {r.shift_info.role} – {r.shift_info.date}
             </div>
-            <div>Orario: {r.shift_info.start_time} – {r.shift_info.end_time}</div>
+            <div>Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}</div>
 
             {r.partial && (
               <div>
@@ -278,39 +279,69 @@ export default function MyShifts({ userId }) {
         )}
 
         {receivedRequests.map((r) => (
-          <div key={r.id} className="border p-2 mb-2 rounded text-sm">
-            <div className="font-semibold">
-              {r.shift_info.role} – {r.shift_info.date}
-            </div>
-            <div>Orario: {r.shift_info.start_time} – {r.shift_info.end_time}</div>
 
-            {r.partial && (
-              <div>
-                Parte richiesta: {r.partial_start} → {r.partial_end}
+            <div key={r.id} className="border p-2 mb-2 rounded text-sm">
+              <div className="font-semibold">
+                {r.shift_info.role} – {r.shift_info.date}
               </div>
-            )}
 
-            <div>
-              Richiesta da: <strong>{r.requester_name}</strong>
+              <div>
+                Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
+              </div>
+
+              {r.partial && (
+                <div>
+                  Parte richiesta: {r.partial_start} → {r.partial_end}
+                </div>
+              )}
+
+              <div>
+                Richiesta da: <strong>{r.requester_name}</strong>
+              </div>
+
+              {/* SE È PENDING MOSTRA PULSANTI */}
+              {r.status === "pending" ? (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                    onClick={() => respond(r.id, "accepted")}
+                  >
+                    Accetta
+                  </button>
+
+                  <button
+                    className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                    onClick={() => respond(r.id, "rejected")}
+                  >
+                    Rifiuta
+                  </button>
+                </div>
+              ) : (
+                /* SE NON È PENDING MOSTRA LO STATO */
+                <p className="mt-2 text-sm">
+                  <strong>Stato: </strong>
+                  {r.status === "accepted" && (
+                    <span className="text-green-600">accettata</span>
+                  )}
+                  {r.status === "rejected" && (
+                    <span className="text-red-600">rifiutata</span>
+                  )}
+                   {r.status === "cancelled" && (
+                    <>
+                      {r.shift_info?.replacement_info?.accepted_by_username ? (
+                        <span className="text-red-600">
+                          già accettata da {r.shift_info.replacement_info.accepted_by_username}
+                        </span>
+                      ) : (
+                        <span className="text-red-600">cancellata</span>
+                      )}
+                    </>
+                  )}
+                </p>
+              )}
             </div>
-
-            <div className="flex gap-2 mt-2">
-              <button
-                className="bg-green-500 text-white px-3 py-1 rounded text-sm"
-                onClick={() => respond(r.id, "accepted")}
-              >
-                Accetta
-              </button>
-
-              <button
-                className="bg-red-500 text-white px-3 py-1 rounded text-sm"
-                onClick={() => respond(r.id, "rejected")}
-              >
-                Rifiuta
-              </button>
-            </div>
-          </div>
         ))}
+
       </div>
     </div>
   );
