@@ -65,10 +65,30 @@ export default function RealCalendar() {
         const all = Array.isArray(res.data) ? res.data : [];
 
         const mapped = all.map((s) => {
-          const titleUser = usernameFromUserField(s.user);
-          const baseTitle = `${titleUser} – ${s.role}`;
+          // --- USER ID SEMPRE CERTO ---
+          const userId =
+            typeof s.user === "number"
+              ? s.user
+              : s.user && typeof s.user === "object"
+              ? s.user.id
+              : null;
 
-          // Colori base
+          // --- USERNAME SEMPRE CERTO ---
+          const userUsername = (() => {
+            if (typeof s.user === "object" && s.user?.username) {
+              return s.user.username;
+            }
+            const u = users.find((x) => x.id === userId);
+            return u ? u.username : "—";
+          })();
+
+          // --- ORARI SENZA SECONDI ---
+          const startTime = s.start_time?.slice(0, 5); // "18:00:00" -> "18:00"
+          const endTime = s.end_time?.slice(0, 5);
+
+          const baseTitle = `${userUsername} – ${s.role}`;
+
+          // --- COLORI ---
           let color = "#4ade80";
           let borderColor = "#16a34a";
           let textColor = "#000000";
@@ -86,21 +106,19 @@ export default function RealCalendar() {
           return {
             id: s.id,
             title: baseTitle,
-            start: `${s.date}T${s.start_time}`,
-            end: `${s.date}T${s.end_time}`,
+            start: `${s.date}T${startTime}`,
+            end: `${s.date}T${endTime}`,
             backgroundColor: color,
             borderColor,
             textColor,
+
             extendedProps: {
               raw: {
                 ...s,
-                user_id: s.user?.id ?? null,
-                user_username: (() => {
-                  if (typeof s.user === "object" && s.user.username) return s.user.username;
-                  const u = users.find((x) => x.id === s.user);
-                  return u ? u.username : "—";
-                })(),
-
+                start_time: startTime,
+                end_time: endTime,
+                user_id: userId,
+                user_username: userUsername,
               },
             },
           };
@@ -115,6 +133,7 @@ export default function RealCalendar() {
       })
       .finally(() => setLoading(false));
   };
+
 
   // carica quando ho gli utenti (una volta all’inizio o se cambiano)
   useEffect(() => {
@@ -135,6 +154,7 @@ export default function RealCalendar() {
     const data = {
       id: raw.id || fcEvent.id,
       user: raw.user_id,
+      user_username: raw.user_username,
       role: raw.role || "",
       date: dateStr,
       start_time:
@@ -240,14 +260,15 @@ export default function RealCalendar() {
       <div id="popup-overlay">
         <div className="popup">
           <h2 className="text-lg font-bold mb-3">
-            Turno reale – {formatIT(new Date(selectedEvent.date))}
+            Gestione turno – {formatIT(new Date(selectedEvent.date))}
           </h2>
 
           {!isEditing ? (
             <>
               <p className="text-sm mb-1">
-                <strong>Orario:</strong> {selectedEvent.start_time} –{" "}
-                {selectedEvent.end_time}
+                <strong>Orario:</strong>{" "}
+                {selectedEvent.start_time?.slice(0, 5)} –{" "}
+                {selectedEvent.end_time?.slice(0, 5)}
               </p>
               <p className="text-sm mb-1">
                 <strong>Collaboratore:</strong>{" "}
@@ -257,6 +278,8 @@ export default function RealCalendar() {
               <p className="text-sm mb-3">
                 <strong>Ruolo:</strong> {selectedEvent.role}
               </p>
+              
+
 
               {rep && rep.accepted && (
                 <div className="text-xs mb-3 p-2 rounded bg-blue-50 border border-blue-200">
@@ -344,26 +367,28 @@ export default function RealCalendar() {
                 </div>
               </div>
 
-              {/* Ruolo */}
+              {/* Collaboratore */}
               <label className="block mb-1 text-sm font-semibold">
-                Ruolo
+                Collaboratore
               </label>
               <select
                 className="w-full border p-2 rounded mb-3"
-                value={selectedEvent.role}
+                value={selectedEvent.user}   // 👈 CAMBIATO
                 onChange={(e) =>
                   setSelectedEvent((prev) => ({
                     ...prev,
-                    role: e.target.value,
+                    user: parseInt(e.target.value),   // 👈 CAMBIATO
                   }))
                 }
               >
-                {ROLE_OPTIONS.filter((r) => r.value !== "").map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
+                <option value="" disabled>Seleziona collaboratore…</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.username} ({u.role})
                   </option>
                 ))}
               </select>
+
 
               <button
                 className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded w-full mb-2"

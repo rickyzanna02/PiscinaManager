@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import Shift, PayRate
 from django.contrib import admin, messages
 from django.utils import timezone
-from .models import Shift, PayRate, TemplateShift
+from .models import Shift, PayRate, TemplateShift, PublishedWeek
 from .utils import generate_shifts_from_template
 
 
@@ -27,3 +27,10 @@ class TemplateShiftAdmin(admin.ModelAdmin):
         today = timezone.now().date()
         created = generate_shifts_from_template(today.year, today.month)
         self.message_user(request, f"Creati {created} turni per {today.strftime('%B %Y')}.", messages.SUCCESS)
+
+@admin.register(PublishedWeek)
+class PublishedWeekAdmin(admin.ModelAdmin):
+    list_display = ("category", "start_date", "created_at")
+    list_filter = ("category", "start_date")
+    ordering = ("-start_date",)
+

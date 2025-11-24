@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from django.contrib.auth.models import User
 from rest_framework import generics
 
-from .models import Shift, TemplateShift, PayRate, ReplacementRequest
+from .models import Shift, TemplateShift, PayRate, ReplacementRequest, PublishedWeek
 from .serializers import (
     ShiftSerializer,
     TemplateShiftSerializer,
@@ -82,6 +82,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def publish(self, request):
         weeks = request.data.get("weeks", [])
+        category = request.data.get("category")
+
+        if not category:
+            return Response({"error": "category mancante"}, status=400)
+
         if not isinstance(weeks, list) or not weeks:
             return Response({"error": "Lista 'weeks' mancante o vuota"},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -89,44 +94,74 @@ class ShiftViewSet(viewsets.ModelViewSet):
         total_created = 0
         total_updated = 0
         total_deleted = 0
-
-        debug_log = []  # <--- LOG DIAGNOSTICO IMPORTANTISSIMO
+        debug_log = []
 
         for week in weeks:
+            # --- LETTURA DATE ---
             try:
                 start_date = date.fromisoformat(week["start"])
                 end_date = date.fromisoformat(week["end"])
             except Exception:
                 return Response({"error": "Formato data errato"}, status=400)
 
-            debug_log.append(f"Settimana: {start_date} -> {end_date}")
+            # --- NORMALIZZAZIONE CORRETTA LUN→DOM ---
+            if start_date.weekday() == 6:  
+                # Domenica → settimana successiva
+                normalized = start_date + timedelta(days=1)
+            else:
+                # Lunedì–Sabato: porta a Lunedì corrente
+                normalized = start_date - timedelta(days=start_date.weekday())
 
-            existing_shifts = Shift.objects.filter(date__range=[start_date, end_date])
+            start_date = normalized
+            end_date = start_date + timedelta(days=6)
+
+            debug_log.append(f"Settimana normalizzata: {start_date} → {end_date}")
+
+            # --- REGISTRA SETTIMANA PUBBLICATA ---
+            PublishedWeek.objects.get_or_create(
+                category=category,
+                start_date=start_date
+            )
+
+            # --- TURNI GIÀ PUBBLICATI ---
+            existing_shifts = Shift.objects.filter(
+                date__range=[start_date, end_date],
+                role=category
+            )
+
             existing_map = {(s.date, s.user_id, s.role): s for s in existing_shifts}
             template_keys = set()
 
-            # GENERA TURNO PER OGNI GIORNO DELLA SETTIMANA
+            # --- GENERAZIONE TURNI PER TUTTA LA SETTIMANA ---
             for i in range(7):
                 current_date = start_date + timedelta(days=i)
                 weekday = current_date.weekday()
 
-                # --- DEBUG WEEKDAY ---
-                debug_log.append(f"Giorno: {current_date} (weekday={weekday})")
+                debug_log.append(f"Giorno {current_date} (weekday={weekday})")
 
-                templates = TemplateShift.objects.filter(weekday=weekday)
+                # FILTRO GIUSTO: SOLO TEMPLATE DI QUELLA CATEGORY
+                templates = TemplateShift.objects.filter(
+                    weekday=weekday,
+                    category=category
+                )
 
-                debug_log.append(f"Trovati {templates.count()} template per weekday {weekday}")
+                debug_log.append(f"Trovati {templates.count()} template per weekday={weekday}")
 
                 for template in templates:
+                    if not template.user:
+                        continue
+
                     key = (current_date, template.user_id, template.category)
                     template_keys.add(key)
 
                     if key in existing_map:
                         shift = existing_map[key]
-                        if (shift.start_time != template.start_time or
-                            shift.end_time != template.end_time or
-                            shift.course_id != (template.course.id if template.course else None)):
 
+                        if (
+                            shift.start_time != template.start_time or
+                            shift.end_time != template.end_time or
+                            shift.course_id != (template.course.id if template.course else None)
+                        ):
                             shift.start_time = template.start_time
                             shift.end_time = template.end_time
                             shift.course = template.course
@@ -140,10 +175,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
                             date=current_date,
                             start_time=template.start_time,
                             end_time=template.end_time,
-                            course=template.course
+                            course=template.course,
                         )
                         total_created += 1
 
+            # --- ELIMINA TURNI NON PIÙ PRESENTI NEL TEMPLATE ---
             for key, shift in existing_map.items():
                 if key not in template_keys:
                     shift.delete()
@@ -154,8 +190,9 @@ class ShiftViewSet(viewsets.ModelViewSet):
             "created": total_created,
             "updated": total_updated,
             "deleted": total_deleted,
-            "debug": debug_log,   # <---- QUI VEDI ITERAZIONE GIORNO PER GIORNO
+            "debug": debug_log,
         })
+
 
 
 
@@ -553,6 +590,36 @@ class ShiftViewSet(viewsets.ModelViewSet):
         ]
 
         return Response(data, status=200)
+    
+    @action(detail=False, methods=['get'])
+    def published_weeks(self, request):
+        year = int(request.query_params.get("year"))
+        month = int(request.query_params.get("month"))
+        category = request.query_params.get("category")
+
+        if not category:
+            return Response({"error": "category richiesta"}, status=400)
+
+        first = date(year, month, 1)
+        last = date(year, month, monthrange(year, month)[1])
+
+        # Estendi un po’ per includere settimane a cavallo mese
+        search_start = first - timedelta(days=7)
+        search_end = last + timedelta(days=7)
+
+        # Leggiamo SOLO da PublishedWeek
+        weeks = PublishedWeek.objects.filter(
+            category=category,
+            start_date__range=[search_start, search_end]
+        ).values_list("start_date", flat=True)
+
+        return Response({
+            "published": [d.isoformat() for d in weeks]
+        })
+
+
+
+
 
 
 

@@ -14,6 +14,7 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
+
   // NUOVO: stato per popup "Inserisci corso" (istruttore)
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [courseForm, setCourseForm] = useState({
@@ -36,6 +37,8 @@ export default function App() {
 const [showPublishModal, setShowPublishModal] = useState(false);
 const [selectedMonth, setSelectedMonth] = useState(() => new Date());
 const [selectedWeeks, setSelectedWeeks] = useState([]);
+const [publishedWeeks, setPublishedWeeks] = useState([]); // per mettere checkbox non cliccabili dellle settimane gia pubblicate
+
 
 // Ritorna tutte le settimane del mese come array di oggetti:
 // { label: "Settimana 1 (1–7)", start: Date, end: Date }
@@ -80,6 +83,20 @@ const changeMonth = (dir) => {
     return d;
   });
 };
+
+useEffect(() => { //ogni volta che dentro al pulsante pubblica, cambio mese, mi ricalcola le settimane pubblicate
+  api.get("shifts/published_weeks/", {
+    params: {
+      year: selectedMonth.getFullYear(),
+      month: selectedMonth.getMonth() + 1,
+      category: category
+    }
+  }).then(res => {
+    console.log("API weeks:", res.data); //LOG
+    setPublishedWeeks(res.data.published || []);
+  });
+}, [selectedMonth]);
+
 
 const toggleWeek = (id) => {
   setSelectedWeeks((prev) =>
@@ -485,55 +502,71 @@ const renderCalendar = () => (
               </button>
             </div>
 
-            {/* --- LISTA SETTIMANE --- */}
-            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto mb-4">
-              {getWeeksOfMonth(
-                selectedMonth.getFullYear(),
-                selectedMonth.getMonth()
-              ).map((week) => (
+           {/* --- LISTA SETTIMANE --- */}
+          <div className="flex flex-col gap-2 max-h-60 overflow-y-auto mb-4">
+            {getWeeksOfMonth(
+              selectedMonth.getFullYear(),
+              selectedMonth.getMonth()
+            ).map((week) => {
+              
+              // Convertiamo la data di inizio settimana nel formato "YYYY-MM-DD"
+              const weekStartKey = week.start.toLocaleDateString("sv-SE");
+              const isPublished = publishedWeeks.includes(weekStartKey);
+
+              return (
                 <label key={week.id} className="flex items-center gap-2">
+                  
                   <input
                     type="checkbox"
                     checked={selectedWeeks.includes(week.id)}
+                    disabled={isPublished}
                     onChange={() => toggleWeek(week.id)}
                   />
+
+                  {isPublished && (
+                    <span className="text-xs text-red-500 ml-1">(già pubblicata)</span>
+                  )}
+
                   {week.label}
                 </label>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+
 
             {/* --- BOTTONI --- */}
             <button
-  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded w-full mb-2"
-  onClick={async () => {
-    try {
-      const weeksPayload = getWeeksOfMonth(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth()
-      )
-      .filter(w => selectedWeeks.includes(w.id))
-      .map(w => ({
-        start: w.start.toISOString().slice(0,10),
-        end: w.end.toISOString().slice(0,10),
-      }));
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded w-full mb-2"
+              onClick={async () => {
+                try {
+                  const weeksPayload = getWeeksOfMonth(
+                    selectedMonth.getFullYear(),
+                    selectedMonth.getMonth()
+                  )
+                  .filter(w => selectedWeeks.includes(w.id))
+                  .map(w => ({
+                    start: w.start.toISOString().slice(0,10),
+                    end: w.end.toISOString().slice(0,10),
+                  }));
 
-      const res = await api.post("shifts/publish/", {
-        weeks: weeksPayload
-      });
+                  const res = await api.post("shifts/publish/", {
+                    category: category,
+                    weeks: weeksPayload
+                  });
 
-      alert("Pubblicazione completata!");
-      console.log("RESPONSE:", res.data);
+                  alert("Pubblicazione completata!");
+                  console.log("RESPONSE:", res.data);
 
-      setShowPublishModal(false);
+                  setShowPublishModal(false);
 
-    } catch (e) {
-      console.error(e);
-      alert("Errore nella pubblicazione");
-    }
-  }}
->
-  Pubblica
-</button>
+                } catch (e) {
+                  console.error(e);
+                  alert("Errore nella pubblicazione");
+                }
+              }}
+            >
+              Pubblica
+            </button>
 
 
             <button

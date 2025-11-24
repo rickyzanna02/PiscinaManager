@@ -116,5 +116,18 @@ class ReplacementRequest(models.Model):
 
     def __str__(self):
         return f"Richiesta {self.shift} → {self.target_user} ({self.status})"
+    
+
+class PublishedWeek(models.Model):
+    category = models.CharField(max_length=50)  # es: "bagnino", "istruttore"
+    start_date = models.DateField()             # Lunedì della settimana
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("category", "start_date")
+
+    def __str__(self):
+        return f"{self.category} - {self.start_date}"
+
 
 
