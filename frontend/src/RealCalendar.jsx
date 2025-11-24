@@ -285,10 +285,13 @@ export default function RealCalendar() {
                 <div className="text-xs mb-3 p-2 rounded bg-blue-50 border border-blue-200">
                   <strong>Sostituzione accettata</strong>
                   <br />
-                  Richiedente ID: {rep.requester_id} <br />
-                  Accettata da: {rep.accepted_by_username} (ID{" "}
-                  {rep.accepted_by_id}) <br />
-                  {rep.partial ? "Parziale" : "Totale"}
+                  Richiesta da: {users.find(u => u.id === rep.requester_id)?.username || "—"}
+                  <br />
+                  Accettata da: {rep.accepted_by_username}
+                  <br />
+                  Tipo sostituzione: {rep.partial ? "Parziale" : "Intero turno"}
+                  <br />
+                  
                 </div>
               )}
 
