@@ -459,6 +459,35 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 6) Crea segmenti
         new_requester_shifts = []
 
+        # 🔥 RICHIESTA ACCETTATA PRECEDENTE DELLO SHIFT ORIGINALE
+        previous_req = ReplacementRequest.objects.filter(
+            shift=shift,
+            status="accepted"
+        ).exclude(id=req.id).order_by("-id").first()
+
+
+        def clone_previous_replacement(new_shift):
+            """
+            🔥 Clona la vecchia richiesta accettata sul nuovo shift,
+            SOLO se il vecchio turno era già una sostituzione totale.
+            """
+            if not previous_req:
+                return
+
+            # Creo una copia 1:1 della richiesta precedente
+            ReplacementRequest.objects.create(
+                shift=new_shift,
+                requester=previous_req.requester,
+                target_user=previous_req.target_user,
+                partial=previous_req.partial,
+                partial_start=previous_req.partial_start,
+                partial_end=previous_req.partial_end,
+                original_start_time=previous_req.original_start_time,
+                original_end_time=previous_req.original_end_time,
+                status="accepted"
+            )
+
+
         def create_shift(user, start, end):
             s = Shift.objects.create(
                 user=user,
@@ -469,9 +498,19 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 approved=shift.approved,
                 course=shift.course,
             )
+
+            # ⭐ Se il pezzo appartiene al sostituto, eredita la vecchia sostituzione
+            if previous_req and user == previous_req.target_user:
+                clone_previous_replacement(s)
+
             if user == requester:
                 new_requester_shifts.append(s)
+
             return s
+
+
+        # ⭐ SALVA IL PEZZO ACCETTATO DAL NUOVO SOSTITUTO
+        shift_original_user = shift.user  # chi era prima del nuovo split
 
         # Caso 1 — parte iniziale
         if part_start == orig_start and part_end < orig_end:
@@ -479,7 +518,8 @@ class ShiftViewSet(viewsets.ModelViewSet):
             shift.start_time = part_start
             shift.end_time = part_end
             shift.save(update_fields=["user", "start_time", "end_time"])
-            create_shift(requester, part_end, orig_end)
+
+            create_shift(shift_original_user, part_end, orig_end)
 
         # Caso 2 — parte finale
         elif part_start > orig_start and part_end == orig_end:
@@ -487,7 +527,8 @@ class ShiftViewSet(viewsets.ModelViewSet):
             shift.start_time = part_start
             shift.end_time = part_end
             shift.save(update_fields=["user", "start_time", "end_time"])
-            create_shift(requester, orig_start, part_start)
+
+            create_shift(shift_original_user, orig_start, part_start)
 
         # Caso 3 — parte interna
         else:
@@ -495,8 +536,9 @@ class ShiftViewSet(viewsets.ModelViewSet):
             shift.start_time = part_start
             shift.end_time = part_end
             shift.save(update_fields=["user", "start_time", "end_time"])
-            create_shift(requester, orig_start, part_start)
-            create_shift(requester, part_end, orig_end)
+
+            create_shift(shift_original_user, orig_start, part_start)
+            create_shift(shift_original_user, part_end, orig_end)
 
         # 7) Ricollega richieste non sovrapposte
         for other in non_overlapping.filter(status='pending'):
@@ -514,6 +556,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 other.save(update_fields=["status"])
 
         return Response({'message': 'Sostituzione parziale accettata'}, status=200)
+
 
 
 
