@@ -11,9 +11,16 @@ class ShiftSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_replacement_info(self, shift):
-        req = ReplacementRequest.objects.filter(
-            shift=shift, status="accepted"
-        ).select_related("target_user", "requester").first()
+        # Prende l'ULTIMA richiesta accepted (la sostituzione valida attuale)
+        req = (
+            ReplacementRequest.objects.filter(
+                shift=shift,
+                status="accepted"
+            )
+            .select_related("target_user", "requester")
+            .order_by("-id")  # <--- FIX IMPORTANTE
+            .first()
+        )
 
         if not req:
             return None
@@ -21,10 +28,16 @@ class ShiftSerializer(serializers.ModelSerializer):
         return {
             "accepted": True,
             "requester_id": req.requester_id,
+            "requester_name": req.requester.username,
             "accepted_by_id": req.target_user_id,
             "accepted_by_username": req.target_user.username,
             "partial": req.partial,
+            "partial_start": req.partial_start,
+            "partial_end": req.partial_end,
+            "original_start": req.original_start_time,
+            "original_end": req.original_end_time,
         }
+
 
 
 

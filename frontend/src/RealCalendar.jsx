@@ -119,6 +119,8 @@ export default function RealCalendar() {
                 end_time: endTime,
                 user_id: userId,
                 user_username: userUsername,
+                original_start_time: s.original_start_time ? s.original_start_time.slice(0,5) : startTime,
+                original_end_time: s.original_end_time ? s.original_end_time.slice(0,5) : endTime,
               },
             },
           };
@@ -164,6 +166,10 @@ export default function RealCalendar() {
         raw.end_time ||
         (fcEvent.endStr ? fcEvent.endStr.slice(11, 16) : ""),
       replacement_info: raw.replacement_info || null,
+      original_start: raw.replacement_info?.original_start,
+      original_end: raw.replacement_info?.original_end,
+
+
     };
 
     setSelectedEvent(data);
@@ -289,9 +295,15 @@ export default function RealCalendar() {
                   <br />
                   Accettata da: {rep.accepted_by_username}
                   <br />
+                  Orario: {
+                    rep.partial 
+                      ? `${rep.partial_start.slice(0,5)} – ${rep.partial_end.slice(0,5)}`
+                      : `${rep.original_start.slice(0,5)} – ${rep.original_end.slice(0,5)}`
+                  }
+
+                  <br />
                   Tipo sostituzione: {rep.partial ? "Parziale" : "Intero turno"}
                   <br />
-                  
                 </div>
               )}
 

@@ -113,6 +113,14 @@ export default function MyShifts({ userId }) {
     setPartialEnd("");
     setSelectedUsers([]);
   };
+  //////////////////////
+  const getAcceptedByName = (r) => {
+    if (r.shift_info?.replacement_info?.accepted) {
+      return r.shift_info.replacement_info.accepted_by_username;
+    }
+    return null;
+  };
+
 
   // =====================================================
   // INVIO RICHIESTE SOSTITUZIONE
@@ -255,16 +263,22 @@ export default function MyShifts({ userId }) {
             </div>
 
             <div>
-              Stato:{" "}
-              <strong>
-                {r.status === "pending"
-                  ? "In attesa"
-                  : r.status === "accepted"
-                  ? "Accettata"
-                  : r.status === "rejected"
-                  ? "Rifiutata"
-                  : "Cancellata"}
-              </strong>
+             <div className="flex gap-2 mt-2"></div>
+              <strong> Stato:{" "} </strong>
+                {r.status === "pending" && ( 
+                  <span className="text-gray-600">in attesa</span>
+                )}
+                {r.status === "accepted" && (
+                  <span className="text-green-600">accettata</span>
+                )}
+                {r.status === "rejected" && (
+                  <span className="text-red-600">rifiutata</span>
+                )}
+                {r.status === "cancelled" && (
+                  <span className="text-red-600">Cancellata</span>
+                )}
+ 
+             
             </div>
           </div>
         ))}
@@ -327,16 +341,13 @@ export default function MyShifts({ userId }) {
                     <span className="text-red-600">rifiutata</span>
                   )}
                    {r.status === "cancelled" && (
-                    <>
-                      {r.shift_info?.replacement_info?.accepted_by_username ? (
-                        <span className="text-red-600">
-                          già accettata da {r.shift_info.replacement_info.accepted_by_username}
-                        </span>
-                      ) : (
-                        <span className="text-red-600">cancellata</span>
-                      )}
-                    </>
+                    <span className="text-red-600">
+                      {getAcceptedByName(r)
+                        ? `già accettata da ${getAcceptedByName(r)}`
+                        : "cancellata"}
+                    </span>
                   )}
+
                 </p>
               )}
             </div>
