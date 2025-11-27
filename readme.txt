@@ -336,11 +336,17 @@ vorrei ora gestire le sostituzioni parziali. immaginiamo di avere un turno dalle
 
 
 DA FARE:
-- gestire bottoni pubblica settimana/mese: se non ci snoo modifiche renderli non cliccabili ad esempio
-- admin tab turni reali vedo solo settiman corrente e non tutto
+1 - perfezionismo: se richiesta sost parziale ma viene selezionato orario intero non farla fare e mostrare avvido di chiedere totale
+2 - problema adesso ma con login no: Hai questa situazione:
+      oggi il sistema NON ha un vero login
 
+      quindi requester viene ricavato in modo “di fortuna”
 
-S
+      questo può creare l’effetto collaterale che chi accetta una richiesta appare anche come chi l’ha inviata
+      (solo perché il backend tenta di indovinare l’utente)
+
+      💡 Con un login reale questo NON succederà più.
+
 
 
 
