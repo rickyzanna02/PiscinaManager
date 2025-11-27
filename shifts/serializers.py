@@ -61,6 +61,9 @@ class ReplacementRequestSerializer(serializers.ModelSerializer):
     target_user_name = serializers.CharField(source="target_user.username", read_only=True)
     shift_info = ShiftSerializer(source="shift", read_only=True)
 
+     # 👇 nuovo
+    closed_by_name = serializers.CharField(source="closed_by.username", read_only=True)
+
     class Meta:
         model = ReplacementRequest
         fields = "__all__"

@@ -428,7 +428,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 shift=shift
             ).exclude(id=req.id)
 
-            other_requests.filter(status='pending').update(status='cancelled')
+            other_requests.filter(status='pending').update(
+                status='cancelled',
+                closed_by=sostituto     # chi ha accettato
+            )
+
 
             return Response({'message': 'Sostituzione totale accettata'}, status=200)
 
@@ -450,11 +454,17 @@ class ShiftViewSet(viewsets.ModelViewSet):
         )
         non_overlapping = partial_reqs.exclude(id__in=overlapping.values("id"))
 
-        # 4) sovrapposte → CANCELLED
-        overlapping.filter(status='pending').update(status='cancelled')
+        # 4 e 5
+        overlapping.filter(status='pending').update(
+            status='cancelled',
+            closed_by=sostituto
+        )
 
-        # 5) totali → CANCELLED
-        total_reqs.filter(status='pending').update(status='cancelled')
+        total_reqs.filter(status='pending').update(
+            status='cancelled',
+            closed_by=sostituto
+        )
+
 
         # 6) Crea segmenti
         new_requester_shifts = []
@@ -462,8 +472,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 🔥 RICHIESTA ACCETTATA PRECEDENTE DELLO SHIFT ORIGINALE
         previous_req = ReplacementRequest.objects.filter(
             shift=shift,
-            status="accepted"
+            status="accepted",
+            original_start_time=shift.start_time,
+            original_end_time=shift.end_time
         ).exclude(id=req.id).order_by("-id").first()
+
 
 
         def clone_previous_replacement(new_shift):
@@ -553,7 +566,9 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 other.save(update_fields=["shift"])
             else:
                 other.status = 'cancelled'
-                other.save(update_fields=["status"])
+                other.closed_by = sostituto
+                other.save(update_fields=["status", "closed_by"])
+
 
         return Response({'message': 'Sostituzione parziale accettata'}, status=200)
 

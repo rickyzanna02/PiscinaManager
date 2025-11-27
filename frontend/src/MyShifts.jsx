@@ -115,11 +115,15 @@ export default function MyShifts({ userId }) {
   };
   //////////////////////
   const getAcceptedByName = (r) => {
-    if (r.shift_info?.replacement_info?.accepted) {
-      return r.shift_info.replacement_info.accepted_by_username;
-    }
+    // Se è stata chiusa da qualcun altro (accept di un altro)
+    if (r.closed_by_name) return r.closed_by_name;
+
+    // Se la richiesta è stata direttamente accettata dal destinatario
+    if (r.status === "accepted") return r.target_user_name;
+
     return null;
   };
+
 
 
   // =====================================================
@@ -275,8 +279,13 @@ export default function MyShifts({ userId }) {
                   <span className="text-red-600">rifiutata</span>
                 )}
                 {r.status === "cancelled" && (
-                  <span className="text-red-600">Cancellata</span>
+                  <span className="text-red-600">
+                    {getAcceptedByName(r)
+                      ? `già accettata da ${getAcceptedByName(r)}`
+                      : "cancellata"}
+                  </span>
                 )}
+
  
              
             </div>
