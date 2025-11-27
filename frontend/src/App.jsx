@@ -95,7 +95,7 @@ useEffect(() => { //ogni volta che dentro al pulsante pubblica, cambio mese, mi 
     console.log("API weeks:", res.data); //LOG
     setPublishedWeeks(res.data.published || []);
   });
-}, [selectedMonth]);
+}, [selectedMonth, category]);
 
 
 const toggleWeek = (id) => {
