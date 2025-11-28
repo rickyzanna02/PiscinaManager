@@ -1,3 +1,4 @@
+# shifts/serializers.py
 from rest_framework import serializers
 from .models import Shift, TemplateShift, PayRate, ReplacementRequest
 
@@ -5,10 +6,10 @@ from .models import Shift, TemplateShift, PayRate, ReplacementRequest
 class ShiftSerializer(serializers.ModelSerializer):
     replacement_info = serializers.SerializerMethodField()
 
-    # input compatibile col frontend
+    # input compatibile col frontend (id corso)
     course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
-    # output coerente
+    # output ricco per il frontend
     course_type_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -62,15 +63,11 @@ class ShiftSerializer(serializers.ModelSerializer):
         }
 
 
-
-
-
-# --- Serializer per la settimana tipo ---
 class TemplateShiftSerializer(serializers.ModelSerializer):
-    # il frontend manda "course", quindi lo accettiamo come write-only
+    # il frontend manda "course" = id del corso
     course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
-    # e restituiamo course_type con il nome corretto
+    # e restituiamo i dati del course_type
     course_type_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -82,9 +79,9 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
             "start_time",
             "end_time",
             "user",
-            "course_type",
-            "course",            # ← campo di input
-            "course_type_data",  # ← campo di output
+            "course_type",      # id FK
+            "course",           # input dal frontend
+            "course_type_data", # output ricco
         ]
 
     def get_course_type_data(self, obj):
@@ -97,7 +94,6 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-        # Se il frontend manda "course", lo traduciamo in course_type
         course_id = data.pop("course", None)
         if course_id:
             from courses.models import CourseType
@@ -108,21 +104,16 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
         return data
 
 
-
-# --- Serializer per le tariffe ---
 class PayRateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PayRate
         fields = '__all__'
 
 
-# --- Serializer per richieste sostituzione ---
 class ReplacementRequestSerializer(serializers.ModelSerializer):
     requester_name = serializers.CharField(source="requester.username", read_only=True)
     target_user_name = serializers.CharField(source="target_user.username", read_only=True)
     shift_info = ShiftSerializer(source="shift", read_only=True)
-
-     # 👇 nuovo
     closed_by_name = serializers.CharField(source="closed_by.username", read_only=True)
 
     class Meta:

@@ -30,14 +30,15 @@ export default function MyShifts({ userId }) {
   // =====================================================
   const loadShifts = () => {
     api
-      .get(`shifts/?user=${userId}`)
+      .get(`/api/shifts/?user=${userId}`)
       .then((res) => {
         const mapped = res.data.map((s) => {
           let color = "#3b82f6"; // blu
           let clickable = true;
-          let title = s.role;
 
-          // 🔥 Gestione sostituzioni accettate
+          // ✅ base: corso se c'è, altrimenti ruolo
+          let title = s.course_type_data?.name || s.role;
+
           if (s.replacement_info?.accepted) {
             if (s.replacement_info.requester_id === userId) {
               color = "#9ca3af"; // grigio
@@ -61,6 +62,7 @@ export default function MyShifts({ userId }) {
           };
         });
 
+
         setShifts(mapped);
       })
       .catch((err) => console.error("Errore caricamento turni:", err));
@@ -71,7 +73,7 @@ export default function MyShifts({ userId }) {
   // =====================================================
   const loadCollaborators = () => {
     api
-      .get("users/")
+      .get("/api/users/")
       .then((res) => {
         setCollaborators((res.data || []).filter((u) => u.id !== userId));
       })
@@ -85,11 +87,11 @@ export default function MyShifts({ userId }) {
     if (!userId) return;
 
     api
-      .get(`shifts/replacements_sent/?user_id=${userId}`)
+      .get(`/api/shifts/replacements_sent/?user_id=${userId}`)
       .then((res) => setSentRequests(res.data || []));
 
     api
-      .get(`shifts/replacements_received/?user_id=${userId}&only_pending=false`)
+      .get(`/api/shifts/replacements_received/?user_id=${userId}&only_pending=false`)
       .then((res) => setReceivedRequests(res.data || []));
 
   };
@@ -141,7 +143,7 @@ export default function MyShifts({ userId }) {
     };
 
     try {
-      await api.post(`shifts/${selectedShift.id}/ask_replacement/`, payload);
+      await api.post(`/api/shifts/${selectedShift.id}/ask_replacement/`, payload);
       alert("Richieste inviate!");
       setSelectedShift(null);
       setStep(null);
@@ -158,7 +160,7 @@ export default function MyShifts({ userId }) {
     const action = status === "accepted" ? "accept" : "reject";
 
     try {
-      await api.post("shifts/respond_replacement/", {
+      await api.post("/api/shifts/respond_replacement/", {
         request_id: id,
         action,
       });
@@ -233,28 +235,35 @@ export default function MyShifts({ userId }) {
     </div>
   );
 
-  // =====================================================
-  // RENDER TAB SOSTITUZIONI
-  // =====================================================
-  const renderRequests = () => (
-    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+// =====================================================
+// RENDER TAB SOSTITUZIONI
+// =====================================================
+const renderRequests = () => (
+  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      {/* --- RICHIESTE INVIATE --- */}
-      <div className="bg-white p-4 rounded shadow">
-        <h2 className="font-bold text-lg mb-2">Richieste inviate</h2>
+    {/* --- RICHIESTE INVIATE --- */}
+    <div className="bg-white p-4 rounded shadow">
+      <h2 className="font-bold text-lg mb-2">Richieste inviate</h2>
 
-        {sentRequests.length === 0 && (
-          <div className="text-gray-500 text-sm">
-            Nessuna richiesta inviata.
-          </div>
-        )}
+      {sentRequests.length === 0 && (
+        <div className="text-gray-500 text-sm">
+          Nessuna richiesta inviata.
+        </div>
+      )}
 
-        {sentRequests.map((r) => (
+      {sentRequests.map((r) => {
+        const courseName = r.shift_info.course_type_data?.name || null;
+        const header = courseName
+          ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
+          : `${r.shift_info.role} – ${r.shift_info.date}`;
+
+        return (
           <div key={r.id} className="border p-2 mb-2 rounded text-sm">
-            <div className="font-semibold">
-              {r.shift_info.role} – {r.shift_info.date}
+            <div className="font-semibold">{header}</div>
+
+            <div>
+              Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
             </div>
-            <div>Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}</div>
 
             {r.partial && (
               <div>
@@ -266,12 +275,83 @@ export default function MyShifts({ userId }) {
               Verso: <strong>{r.target_user_name}</strong>
             </div>
 
+            <div className="mt-2">
+              <strong>Stato: </strong>
+              {r.status === "pending" && (
+                <span className="text-gray-600">in attesa</span>
+              )}
+              {r.status === "accepted" && (
+                <span className="text-green-600">accettata</span>
+              )}
+              {r.status === "rejected" && (
+                <span className="text-red-600">rifiutata</span>
+              )}
+              {r.status === "cancelled" && (
+                <span className="text-red-600">
+                  {getAcceptedByName(r)
+                    ? `già accettata da ${getAcceptedByName(r)}`
+                    : "cancellata"}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    {/* --- RICHIESTE RICEVUTE --- */}
+    <div className="bg-white p-4 rounded shadow">
+      <h2 className="font-bold text-lg mb-2">Richieste ricevute</h2>
+
+      {receivedRequests.length === 0 && (
+        <div className="text-gray-500 text-sm">Nessuna richiesta ricevuta.</div>
+      )}
+
+      {receivedRequests.map((r) => {
+        const courseName = r.shift_info.course_type_data?.name || null;
+        const header = courseName
+          ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
+          : `${r.shift_info.role} – ${r.shift_info.date}`;
+
+        return (
+          <div key={r.id} className="border p-2 mb-2 rounded text-sm">
+            <div className="font-semibold">{header}</div>
+
             <div>
-             <div className="flex gap-2 mt-2"></div>
-              <strong> Stato:{" "} </strong>
-                {r.status === "pending" && ( 
-                  <span className="text-gray-600">in attesa</span>
-                )}
+              Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
+            </div>
+
+            {r.partial && (
+              <div>
+                Parte richiesta: {r.partial_start} → {r.partial_end}
+              </div>
+            )}
+
+            <div>
+              Richiesta da: <strong>{r.requester_name}</strong>
+            </div>
+
+            {/* SE È PENDING MOSTRA PULSANTI */}
+            {r.status === "pending" ? (
+              <div className="flex gap-2 mt-2">
+                <button
+                  className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                  onClick={() => respond(r.id, "accepted")}
+                >
+                  Accetta
+                </button>
+
+                <button
+                  className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                  onClick={() => respond(r.id, "rejected")}
+                >
+                  Rifiuta
+                </button>
+              </div>
+            ) : (
+              /* SE NON È PENDING MOSTRA LO STATO */
+              <p className="mt-2 text-sm">
+                <strong>Stato: </strong>
                 {r.status === "accepted" && (
                   <span className="text-green-600">accettata</span>
                 )}
@@ -285,86 +365,16 @@ export default function MyShifts({ userId }) {
                       : "cancellata"}
                   </span>
                 )}
-
- 
-             
-            </div>
+              </p>
+            )}
           </div>
-        ))}
-      </div>
+        );
+      })}
 
-      {/* --- RICHIESTE RICEVUTE --- */}
-      <div className="bg-white p-4 rounded shadow">
-        <h2 className="font-bold text-lg mb-2">Richieste ricevute</h2>
-
-        {receivedRequests.length === 0 && (
-          <div className="text-gray-500 text-sm">Nessuna richiesta ricevuta.</div>
-        )}
-
-        {receivedRequests.map((r) => (
-
-            <div key={r.id} className="border p-2 mb-2 rounded text-sm">
-              <div className="font-semibold">
-                {r.shift_info.role} – {r.shift_info.date}
-              </div>
-
-              <div>
-                Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
-              </div>
-
-              {r.partial && (
-                <div>
-                  Parte richiesta: {r.partial_start} → {r.partial_end}
-                </div>
-              )}
-
-              <div>
-                Richiesta da: <strong>{r.requester_name}</strong>
-              </div>
-
-              {/* SE È PENDING MOSTRA PULSANTI */}
-              {r.status === "pending" ? (
-                <div className="flex gap-2 mt-2">
-                  <button
-                    className="bg-green-500 text-white px-3 py-1 rounded text-sm"
-                    onClick={() => respond(r.id, "accepted")}
-                  >
-                    Accetta
-                  </button>
-
-                  <button
-                    className="bg-red-500 text-white px-3 py-1 rounded text-sm"
-                    onClick={() => respond(r.id, "rejected")}
-                  >
-                    Rifiuta
-                  </button>
-                </div>
-              ) : (
-                /* SE NON È PENDING MOSTRA LO STATO */
-                <p className="mt-2 text-sm">
-                  <strong>Stato: </strong>
-                  {r.status === "accepted" && (
-                    <span className="text-green-600">accettata</span>
-                  )}
-                  {r.status === "rejected" && (
-                    <span className="text-red-600">rifiutata</span>
-                  )}
-                   {r.status === "cancelled" && (
-                    <span className="text-red-600">
-                      {getAcceptedByName(r)
-                        ? `già accettata da ${getAcceptedByName(r)}`
-                        : "cancellata"}
-                    </span>
-                  )}
-
-                </p>
-              )}
-            </div>
-        ))}
-
-      </div>
     </div>
-  );
+  </div>
+);
+
 
 
   // =====================================================

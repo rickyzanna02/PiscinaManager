@@ -6,7 +6,7 @@ export default function ContabilitaPage() {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    api.get("users/").then((res) => {
+    api.get("/api/users/").then((res) => {
       const sorted = [...res.data].sort((a, b) =>
         a.username.localeCompare(b.username)
       );

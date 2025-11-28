@@ -34,15 +34,25 @@ export default function RealCalendar() {
   // popup gestione turno reale
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+   // ✅ tipi di corso per eventuale editing
+  const [courseTypes, setCourseTypes] = useState([]);
 
   // ==========================
   // CARICA UTENTI
   // ==========================
   useEffect(() => {
     api
-      .get("users/")
+      .get("/api/users/")
       .then((res) => setUsers(res.data || []))
       .catch((err) => console.error("Errore caricamento utenti:", err));
+  }, []);
+
+  // ✅ carica tipi corso
+  useEffect(() => {
+    api
+      .get("/api/courses/types/")
+      .then((res) => setCourseTypes(res.data || []))
+      .catch((err) => console.error("Errore caricamento tipi corso:", err));
   }, []);
 
   const usernameFromUserField = (userField) => {
@@ -60,12 +70,11 @@ export default function RealCalendar() {
     setLoading(true);
 
     api
-      .get("shifts/")
+      .get("/api/shifts/")
       .then((res) => {
         const all = Array.isArray(res.data) ? res.data : [];
 
         const mapped = all.map((s) => {
-          // --- USER ID SEMPRE CERTO ---
           const userId =
             typeof s.user === "number"
               ? s.user
@@ -73,7 +82,6 @@ export default function RealCalendar() {
               ? s.user.id
               : null;
 
-          // --- USERNAME SEMPRE CERTO ---
           const userUsername = (() => {
             if (typeof s.user === "object" && s.user?.username) {
               return s.user.username;
@@ -82,13 +90,16 @@ export default function RealCalendar() {
             return u ? u.username : "—";
           })();
 
-          // --- ORARI SENZA SECONDI ---
-          const startTime = s.start_time?.slice(0, 5); // "18:00:00" -> "18:00"
+          const startTime = s.start_time?.slice(0, 5);
           const endTime = s.end_time?.slice(0, 5);
 
-          const baseTitle = `${userUsername} – ${s.role}`;
+          // ✅ info corso se presente
+          const courseName = s.course_type_data?.name || null;
 
-          // --- COLORI ---
+          const baseTitle = courseName
+            ? `${userUsername} – ${s.role} – ${courseName}`
+            : `${userUsername} – ${s.role}`;
+
           let color = "#4ade80";
           let borderColor = "#16a34a";
           let textColor = "#000000";
@@ -111,7 +122,6 @@ export default function RealCalendar() {
             backgroundColor: color,
             borderColor,
             textColor,
-
             extendedProps: {
               raw: {
                 ...s,
@@ -119,8 +129,8 @@ export default function RealCalendar() {
                 end_time: endTime,
                 user_id: userId,
                 user_username: userUsername,
-                original_start_time: s.original_start_time ? s.original_start_time.slice(0,5) : startTime,
-                original_end_time: s.original_end_time ? s.original_end_time.slice(0,5) : endTime,
+                course_name: courseName,
+                course_type_id: s.course_type_data?.id || s.course_type || null,
               },
             },
           };
@@ -136,8 +146,6 @@ export default function RealCalendar() {
       .finally(() => setLoading(false));
   };
 
-
-  // carica quando ho gli utenti (una volta all’inizio o se cambiano)
   useEffect(() => {
     if (users.length > 0) {
       loadAllShifts();
@@ -166,10 +174,8 @@ export default function RealCalendar() {
         raw.end_time ||
         (fcEvent.endStr ? fcEvent.endStr.slice(11, 16) : ""),
       replacement_info: raw.replacement_info || null,
-      original_start: raw.replacement_info?.original_start,
-      original_end: raw.replacement_info?.original_end,
-
-
+      course: raw.course_type_id || null,        // ✅ id corso
+      course_name: raw.course_name || null,      // ✅ nome corso
     };
 
     setSelectedEvent(data);
@@ -180,39 +186,40 @@ export default function RealCalendar() {
   // RENDER EVENTO
   // ==========================
   const renderEventContent = (eventInfo) => {
-  const raw = eventInfo.event.extendedProps.raw || {};
+    const raw = eventInfo.event.extendedProps.raw || {};
 
-  // Rimuove i secondi -> 06:00
-  const formatTime = (t) => (t ? t.slice(0, 5) : "");
+    const formatTime = (t) => (t ? t.slice(0, 5) : "");
 
-  const start = formatTime(raw.start_time);
-  const end = formatTime(raw.end_time);
-  const timeLabel = `${start} - ${end}`;
+    const start = formatTime(raw.start_time);
+    const end = formatTime(raw.end_time);
+    const timeLabel = `${start} - ${end}`;
 
-  // Mostra il nome utente correttamente
-  const titleUser = raw.user_username || "—";
-  const role = raw.role || "";
-  const label = `${titleUser} – ${role}`;
+    const titleUser = raw.user_username || "—";
+    const role = raw.role || "";
+    const courseName = raw.course_name || "";
+    const label = courseName
+      ? `${titleUser} – ${role} – ${courseName}`
+      : `${titleUser} – ${role}`;
 
-  const onButtonClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    openManageFromEvent(eventInfo.event);
+    const onButtonClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openManageFromEvent(eventInfo.event);
+    };
+
+    return (
+      <div className="fc-custom-event flex flex-col items-start text-left">
+        <button
+          onClick={onButtonClick}
+          className="text-[12px] font-semibold bg-white/90 hover:bg-white text-gray-800 border border-gray-300 rounded-md px-2 py-1 leading-tight shadow-sm transition w-3/4"
+          style={{ whiteSpace: "normal", lineHeight: "1.2" }}
+        >
+          <div className="text-[11px] font-normal">{timeLabel}</div>
+          <div className="text-[12px] font-semibold">{label}</div>
+        </button>
+      </div>
+    );
   };
-
-  return (
-    <div className="fc-custom-event flex flex-col items-start text-left">
-      <button
-        onClick={onButtonClick}
-        className="text-[12px] font-semibold bg-white/90 hover:bg-white text-gray-800 border border-gray-300 rounded-md px-2 py-1 leading-tight shadow-sm transition w-3/4"
-        style={{ whiteSpace: "normal", lineHeight: "1.2" }}
-      >
-        <div className="text-[11px] font-normal">{timeLabel}</div>
-        <div className="text-[12px] font-semibold">{label}</div>
-      </button>
-    </div>
-  );
-};
 
   // ==========================
   // AZIONI POPUP: UPDATE / DELETE
@@ -223,9 +230,9 @@ export default function RealCalendar() {
       return;
 
     try {
-      await api.delete(`shifts/${selectedEvent.id}/`);
+      await api.delete(`/api/shifts/${selectedEvent.id}/`);
       setSelectedEvent(null);
-      loadAllShifts(); // ricarica tutti i turni dopo l’eliminazione
+      loadAllShifts();
     } catch (e) {
       console.error(e);
       alert("Errore nell'eliminazione del turno.");
@@ -241,13 +248,14 @@ export default function RealCalendar() {
       date: selectedEvent.date,
       start_time: selectedEvent.start_time,
       end_time: selectedEvent.end_time,
+      course: selectedEvent.course || null,    // ✅ aggiorna corso
     };
 
     try {
-      await api.patch(`shifts/${selectedEvent.id}/`, payload);
+      await api.patch(`/api/shifts/${selectedEvent.id}/`, payload);
       setIsEditing(false);
       setSelectedEvent(null);
-      loadAllShifts(); // ricarica tutti i turni dopo il salvataggio
+      loadAllShifts();
     } catch (e) {
       console.error(e);
       alert("Errore nel salvataggio del turno.");
@@ -281,26 +289,29 @@ export default function RealCalendar() {
                 {usernameFromUserField(selectedEvent.user)}
               </p>
 
-              <p className="text-sm mb-3">
+              <p className="text-sm mb-1">
                 <strong>Ruolo:</strong> {selectedEvent.role}
               </p>
-              
 
+              <p className="text-sm mb-3">
+                <strong>Corso:</strong>{" "}
+                {selectedEvent.course_name || "—"}
+              </p>
 
               {rep && rep.accepted && (
                 <div className="text-xs mb-3 p-2 rounded bg-blue-50 border border-blue-200">
                   <strong>Sostituzione accettata</strong>
                   <br />
-                  Richiesta da: {users.find(u => u.id === rep.requester_id)?.username || "—"}
+                  Richiesta da:{" "}
+                  {users.find((u) => u.id === rep.requester_id)?.username ||
+                    "—"}
                   <br />
                   Accettata da: {rep.accepted_by_username}
                   <br />
-                  Orario: {
-                    rep.partial 
-                      ? `${rep.partial_start.slice(0,5)} – ${rep.partial_end.slice(0,5)}`
-                      : `${rep.original_start.slice(0,5)} – ${rep.original_end.slice(0,5)}`
-                  }
-
+                  Orario:{" "}
+                  {rep.partial
+                    ? `${rep.partial_start.slice(0, 5)} – ${rep.partial_end.slice(0, 5)}`
+                    : `${rep.original_start.slice(0, 5)} – ${rep.original_end.slice(0, 5)}`}
                   <br />
                   Tipo sostituzione: {rep.partial ? "Parziale" : "Intero turno"}
                   <br />
@@ -383,20 +394,22 @@ export default function RealCalendar() {
               </div>
 
               {/* Collaboratore */}
-              <label className="block mb-1 text-sm font-semibold">
+              <label className="block mb-1 text_sm font-semibold">
                 Collaboratore
               </label>
               <select
                 className="w-full border p-2 rounded mb-3"
-                value={selectedEvent.user}   // 👈 CAMBIATO
+                value={selectedEvent.user}
                 onChange={(e) =>
                   setSelectedEvent((prev) => ({
                     ...prev,
-                    user: parseInt(e.target.value),   // 👈 CAMBIATO
+                    user: parseInt(e.target.value),
                   }))
                 }
               >
-                <option value="" disabled>Seleziona collaboratore…</option>
+                <option value="" disabled>
+                  Seleziona collaboratore…
+                </option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.username} ({u.role})
@@ -404,6 +417,34 @@ export default function RealCalendar() {
                 ))}
               </select>
 
+              {/* ✅ Corso */}
+              <label className="block mb-1 text-sm font-semibold">
+                Corso
+              </label>
+              <select
+                className="w-full border p-2 rounded mb-3"
+                value={selectedEvent.course || ""}
+                onChange={(e) =>
+                  setSelectedEvent((prev) => ({
+                    ...prev,
+                    course: e.target.value ? parseInt(e.target.value) : null,
+                    course_name:
+                      courseTypes.find(
+                        (ct) => ct.id === parseInt(e.target.value)
+                      )?.name || null,
+                  }))
+                }
+              >
+                <option value="">Nessun corso / generico</option>
+                {courseTypes.map((ct) => (
+                  <option key={ct.id} value={ct.id}>
+                    {ct.name}
+                    {ct.default_minutes
+                      ? ` (${ct.default_minutes} min)`
+                      : ""}
+                  </option>
+                ))}
+              </select>
 
               <button
                 className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded w-full mb-2"
@@ -424,6 +465,9 @@ export default function RealCalendar() {
       </div>
     );
   };
+
+
+
 
   // ==========================
   // RENDER COMPLETO

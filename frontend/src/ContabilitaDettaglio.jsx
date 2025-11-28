@@ -71,11 +71,11 @@ export default function ContabilitaDettaglio() {
 
   useEffect(() => {
     // carica informazioni utente
-    api.get(`users/${userId}/`).then((res) => setUser(res.data)).catch(() => {});
+    api.get(`/api/users/${userId}/`).then((res) => setUser(res.data)).catch(() => {});
 
     // carica turni del mese
     api
-      .get(`shifts/?user=${userId}&month=${month}&year=${year}`)
+      .get(`/api/shifts/?user=${userId}&month=${month}&year=${year}`)
       .then((res) => {
         // ordina per data
         const sorted = res.data.sort((a, b) =>
