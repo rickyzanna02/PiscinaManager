@@ -195,8 +195,8 @@ export default function App() {
             startTime: hhmm(t.start_time),
             endTime: hhmm(t.end_time),
             category,
-            course: t.course?.id || t.course || null,
-            courseName: t.course?.name || t.course_name || "",
+            course_type: t.course_type || null,
+            //courseName: t.course?.name || t.course_name || "",
           },
         };
       });

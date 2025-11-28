@@ -2,23 +2,46 @@ from rest_framework import serializers
 from .models import Shift, TemplateShift, PayRate, ReplacementRequest
 
 
-# --- Serializer per i turni reali ---
 class ShiftSerializer(serializers.ModelSerializer):
     replacement_info = serializers.SerializerMethodField()
+
+    # input compatibile col frontend
+    course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
+    # output coerente
+    course_type_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Shift
         fields = "__all__"
 
+    def validate(self, data):
+        course_id = data.pop("course", None)
+        if course_id:
+            from courses.models import CourseType
+            try:
+                data["course_type"] = CourseType.objects.get(id=course_id)
+            except CourseType.DoesNotExist:
+                raise serializers.ValidationError({"course": "CourseType non trovato"})
+        return data
+
+    def get_course_type_data(self, obj):
+        if not obj.course_type:
+            return None
+        return {
+            "id": obj.course_type.id,
+            "name": obj.course_type.name,
+            "default_minutes": obj.course_type.default_minutes,
+        }
+
     def get_replacement_info(self, shift):
-        # Prende l'ULTIMA richiesta accepted (la sostituzione valida attuale)
         req = (
             ReplacementRequest.objects.filter(
                 shift=shift,
                 status="accepted"
             )
             .select_related("target_user", "requester")
-            .order_by("-id")  # <--- FIX IMPORTANTE
+            .order_by("-id")
             .first()
         )
 
@@ -41,11 +64,49 @@ class ShiftSerializer(serializers.ModelSerializer):
 
 
 
+
 # --- Serializer per la settimana tipo ---
 class TemplateShiftSerializer(serializers.ModelSerializer):
+    # il frontend manda "course", quindi lo accettiamo come write-only
+    course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
+    # e restituiamo course_type con il nome corretto
+    course_type_data = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = TemplateShift
-        fields = '__all__'
+        fields = [
+            "id",
+            "category",
+            "weekday",
+            "start_time",
+            "end_time",
+            "user",
+            "course_type",
+            "course",            # ← campo di input
+            "course_type_data",  # ← campo di output
+        ]
+
+    def get_course_type_data(self, obj):
+        if not obj.course_type:
+            return None
+        return {
+            "id": obj.course_type.id,
+            "name": obj.course_type.name,
+            "default_minutes": obj.course_type.default_minutes,
+        }
+
+    def validate(self, data):
+        # Se il frontend manda "course", lo traduciamo in course_type
+        course_id = data.pop("course", None)
+        if course_id:
+            from courses.models import CourseType
+            try:
+                data["course_type"] = CourseType.objects.get(id=course_id)
+            except CourseType.DoesNotExist:
+                raise serializers.ValidationError({"course": "CourseType non trovato"})
+        return data
+
 
 
 # --- Serializer per le tariffe ---

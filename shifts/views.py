@@ -72,7 +72,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                     date=current_date,
                     start_time=template.start_time,
                     end_time=template.end_time,
-                    defaults={'course': template.course}
+                    defaults={'course_type': template.course_type}
                 )
                 if created:
                     created_count += 1
@@ -97,19 +97,16 @@ class ShiftViewSet(viewsets.ModelViewSet):
         debug_log = []
 
         for week in weeks:
-            # --- LETTURA DATE ---
             try:
                 start_date = date.fromisoformat(week["start"])
                 end_date = date.fromisoformat(week["end"])
             except Exception:
                 return Response({"error": "Formato data errato"}, status=400)
 
-            # --- NORMALIZZAZIONE CORRETTA LUN→DOM ---
-            if start_date.weekday() == 6:  
-                # Domenica → settimana successiva
+            # Normalizza settimana a Lunedì
+            if start_date.weekday() == 6:
                 normalized = start_date + timedelta(days=1)
             else:
-                # Lunedì–Sabato: porta a Lunedì corrente
                 normalized = start_date - timedelta(days=start_date.weekday())
 
             start_date = normalized
@@ -117,35 +114,34 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
             debug_log.append(f"Settimana normalizzata: {start_date} → {end_date}")
 
-            # --- REGISTRA SETTIMANA PUBBLICATA ---
+            # Registra settimana come pubblicata
             PublishedWeek.objects.get_or_create(
                 category=category,
                 start_date=start_date
             )
 
-            # --- TURNI GIÀ PUBBLICATI ---
+            # Turni esistenti della settimana
             existing_shifts = Shift.objects.filter(
                 date__range=[start_date, end_date],
                 role=category
             )
 
-            existing_map = {(s.date, s.user_id, s.role): s for s in existing_shifts}
+            existing_map = {
+                (s.date, s.user_id, s.role): s
+                for s in existing_shifts
+            }
+
             template_keys = set()
 
-            # --- GENERAZIONE TURNI PER TUTTA LA SETTIMANA ---
+            # Genera i turni dai template
             for i in range(7):
                 current_date = start_date + timedelta(days=i)
                 weekday = current_date.weekday()
 
-                debug_log.append(f"Giorno {current_date} (weekday={weekday})")
-
-                # FILTRO GIUSTO: SOLO TEMPLATE DI QUELLA CATEGORY
                 templates = TemplateShift.objects.filter(
                     weekday=weekday,
                     category=category
                 )
-
-                debug_log.append(f"Trovati {templates.count()} template per weekday={weekday}")
 
                 for template in templates:
                     if not template.user:
@@ -157,15 +153,18 @@ class ShiftViewSet(viewsets.ModelViewSet):
                     if key in existing_map:
                         shift = existing_map[key]
 
+                        # 🔥 CONFRONTO CORRETTO (course_type!)
+                        tpl_course_id = template.course_type_id
+
                         if (
                             shift.start_time != template.start_time or
                             shift.end_time != template.end_time or
-                            shift.course_id != (template.course.id if template.course else None)
+                            shift.course_type_id != tpl_course_id
                         ):
                             shift.start_time = template.start_time
                             shift.end_time = template.end_time
-                            shift.course = template.course
-                            shift.save(update_fields=["start_time", "end_time", "course"])
+                            shift.course_type_id = tpl_course_id
+                            shift.save(update_fields=["start_time", "end_time", "course_type"])
                             total_updated += 1
 
                     else:
@@ -175,11 +174,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
                             date=current_date,
                             start_time=template.start_time,
                             end_time=template.end_time,
-                            course=template.course,
+                            course_type=template.course_type,
                         )
                         total_created += 1
 
-            # --- ELIMINA TURNI NON PIÙ PRESENTI NEL TEMPLATE ---
+            # Elimina turni non più presenti nei template
             for key, shift in existing_map.items():
                 if key not in template_keys:
                     shift.delete()
@@ -192,6 +191,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
             "deleted": total_deleted,
             "debug": debug_log,
         })
+
 
 
 
@@ -509,7 +509,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 start_time=start,
                 end_time=end,
                 approved=shift.approved,
-                course=shift.course,
+                course_type=shift.course_type,
             )
 
             # ⭐ Se il pezzo appartiene al sostituto, eredita la vecchia sostituzione
