@@ -276,17 +276,6 @@ export default function App() {
 
   };
 
-  // richiesta sostituzione
-  const handleNotify = (event) => {
-    api.post("/api/notify_replacement/", { shift_id: event.id }).then(() => {
-      alert("Richiesta di sostituzione inviata a tutti gli utenti.");
-      setSelectedEvent(null);
-      setEvents((prev) =>
-        prev.map((e) => (e.id === event.id ? { ...e, color: "#60a5fa" } : e))
-      );
-      setCalendarKey((k) => k + 1);
-    });
-  };
 
   const openManageFromEvent = (fcEvent) => {
     const data = {
@@ -299,6 +288,7 @@ export default function App() {
       endTime:
         fcEvent.extendedProps.endTime ||
         (fcEvent.endStr ? fcEvent.endStr.slice(11, 16) : ""),
+      courseName: fcEvent.extendedProps.courseName || null,
     };
     setSelectedEvent(data);
     setIsEditing(false);
@@ -776,15 +766,30 @@ export default function App() {
       {selectedEvent && (
         <div id="popup-overlay">
           <div className="popup">
-            <h2 className="text-lg font-bold mb-3">
-              Gestisci turno – {selectedEvent.title}
-            </h2>
+            <h2 className="text-lg font-bold mb-3">Gestione turno</h2>
 
             {!isEditing ? (
               <>
-                <p className="text-sm mb-4 text-gray-600">
-                  Orario: {selectedEvent.startTime} – {selectedEvent.endTime}
-                </p>
+                <div className="mb-4 text-sm text-gray-700 space-y-1">
+                  <p>
+                    <strong>Ruolo:</strong> {category}
+                  </p>
+
+                  <p>
+                    <strong>Collaboratore:</strong> {selectedEvent.title}
+                  </p>
+
+                  <p>
+                    <strong>Orario:</strong> {selectedEvent.startTime} – {selectedEvent.endTime}
+                  </p>
+
+                   {/* Se ruolo = istruttore → mostra tipo corso */}
+                    {category === "istruttore" && selectedEvent.courseName && (
+                      <p>
+                        <strong>Tipo corso:</strong> {selectedEvent.courseName}
+                      </p>
+                    )}
+                </div>
 
                 <button
                   className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded w-full mb-2"
@@ -799,13 +804,7 @@ export default function App() {
                 >
                   🗑️ Elimina
                 </button>
-
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded w-full"
-                  onClick={() => handleNotify(selectedEvent)}
-                >
-                  📢 Richiedi sostituzione
-                </button>
+                
 
                 <button
                   className="bg-gray-300 hover:bg-gray-400 transition px-3 py-1 rounded w-full mt-2"

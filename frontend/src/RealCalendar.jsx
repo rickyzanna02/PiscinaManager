@@ -197,9 +197,17 @@ export default function RealCalendar() {
     const titleUser = raw.user_username || "—";
     const role = raw.role || "";
     const courseName = raw.course_name || "";
-    const label = courseName
-      ? `${titleUser} – ${role} – ${courseName}`
-      : `${titleUser} – ${role}`;
+
+    let label = "";
+
+if (role === "istruttore") {
+  label = courseName
+    ? `${titleUser} – ${courseName}`
+    : `${titleUser}`;
+} else {
+  label = `${titleUser} – ${role}`;
+}
+
 
     const onButtonClick = (e) => {
       e.preventDefault();
@@ -293,10 +301,13 @@ export default function RealCalendar() {
                 <strong>Ruolo:</strong> {selectedEvent.role}
               </p>
 
+              {selectedEvent.role === "istruttore" && (
               <p className="text-sm mb-3">
-                <strong>Corso:</strong>{" "}
+                <strong>Tipo corso:</strong>{" "}
                 {selectedEvent.course_name || "—"}
               </p>
+            )}
+
 
               {rep && rep.accepted && (
                 <div className="text-xs mb-3 p-2 rounded bg-blue-50 border border-blue-200">
@@ -435,7 +446,7 @@ export default function RealCalendar() {
                   }))
                 }
               >
-                <option value="">Nessun corso / generico</option>
+                <option value="" disabled> Seleziona un tipo di corso</option>
                 {courseTypes.map((ct) => (
                   <option key={ct.id} value={ct.id}>
                     {ct.name}
