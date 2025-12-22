@@ -99,34 +99,40 @@ function computeMonthlyTotals(shifts) {
     pulizia: 0,
   };
 
-  // istruttori: conteggio turni per tipo corso
-  const instructorByCourse = {};
+  // istruttori: alcuni corsi a ORE, altri a TURNI
+  const INSTRUCTOR_COURSES_COUNT_AS_HOURS = new Set(["propaganda", "agonismo"]);
+
+  const instructorByCourse = {}; // turni (default)
+  const instructorHoursByCourse = {}; // ore (propaganda/agonismo)
 
   shifts.forEach((s) => {
     if (roles.includes(s.role)) {
-      // somma ore
       hoursByRole[s.role] += diffHours(s.start_time, s.end_time);
-    } else if (s.role === "istruttore") {
+      return;
+    }
+
+    if (s.role === "istruttore") {
       const courseName =
-        s.course_type_data?.name ||
-        s.course?.name ||
-        "Altro";
-      instructorByCourse[courseName] =
-        (instructorByCourse[courseName] || 0) + 1;
+        (s.course_type_data?.name || s.course?.name || "Altro").toLowerCase();
+
+      if (INSTRUCTOR_COURSES_COUNT_AS_HOURS.has(courseName)) {
+        instructorHoursByCourse[courseName] =
+          (instructorHoursByCourse[courseName] || 0) +
+          diffHours(s.start_time, s.end_time);
+      } else {
+        instructorByCourse[courseName] =
+          (instructorByCourse[courseName] || 0) + 1;
+      }
     }
   });
-
-  const instructorTotalShifts = Object.values(instructorByCourse).reduce(
-    (sum, n) => sum + n,
-    0
-  );
 
   return {
     hoursByRole,
     instructorByCourse,
-    instructorTotalShifts,
+    instructorHoursByCourse,
   };
 }
+
 
 export default function ContabilitaDettaglio() {
   const { userId } = useParams();
@@ -197,8 +203,9 @@ export default function ContabilitaDettaglio() {
     .toUpperCase();
 
   // === TOTALI MENSILI A PARTIRE DA shifts (crudi, non mergiati) ===
-  const { hoursByRole, instructorByCourse, instructorTotalShifts } =
+  const { hoursByRole, instructorByCourse, instructorHoursByCourse } =
     computeMonthlyTotals(shifts);
+
 
   const formatHours = (h) => {
     const isInt = Number.isInteger(h);
@@ -332,22 +339,35 @@ export default function ContabilitaDettaglio() {
 
 
         {/* Istruttore → totale turni, divisi per tipo corso */}
-        {Object.entries(instructorByCourse).filter(([, count]) => count > 0).length > 0 && (
+        {(
+          Object.entries(instructorByCourse).some(([, count]) => count > 0) ||
+          Object.entries(instructorHoursByCourse).some(([, hours]) => hours > 0)
+        ) && (
         <div className="text-sm">
           <p className="mb-1">
             <strong>Istruttore:</strong>
           </p>
 
           <ul className="ml-4 list-disc">
-            {Object.entries(instructorByCourse)
-              .filter(([, count]) => count > 0)
-              .map(([courseName, count]) => (
-                <li key={courseName}>
-                  {courseName}: {count}{" "}
-                  {count === 1 ? "turno" : "turni"}
-                </li>
-              ))}
-          </ul>
+          {/* Corsi conteggiati a TURNI */}
+          {Object.entries(instructorByCourse)
+            .filter(([, count]) => count > 0)
+            .map(([courseName, count]) => (
+              <li key={`turni-${courseName}`}>
+                {courseName}: {count} {count === 1 ? "turno" : "turni"}
+              </li>
+            ))}
+
+          {/* Corsi conteggiati a ORE (propaganda, agonismo) */}
+          {Object.entries(instructorHoursByCourse)
+            .filter(([, hours]) => hours > 0)
+            .map(([courseName, hours]) => (
+              <li key={`ore-${courseName}`}>
+                {courseName}: {formatHours(hours)} {hours === 1 ? "ora" : "ore"}
+              </li>
+            ))}
+        </ul>
+
         </div>
       )}
 
