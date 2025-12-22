@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "./api";
 
+import "./ContabilitaDettaglio.css";
+
+
+
 // =======================================
 // MERGE TURNI CONTIGUI PER VISUALIZZAZIONE
 // =======================================
@@ -139,6 +143,18 @@ export default function ContabilitaDettaglio() {
 
   const [user, setUser] = useState(null);
   const [shifts, setShifts] = useState([]);
+  const [courseTypes, setCourseTypes] = useState([]);
+  const [baseRates, setBaseRates] = useState([]);
+  const [userHourlyRates, setUserHourlyRates] = useState([]);
+  const [instructorCourseRates, setInstructorCourseRates] = useState([]);
+
+
+  useEffect(() => {
+    api.get("/api/courses/types/").then((r) => setCourseTypes(r.data || [])).catch(()=>{});
+    api.get("/api/courses/base-rates/").then((r) => setBaseRates(r.data || [])).catch(()=>{});
+    api.get("/api/courses/user-hourly-rates/").then((r) => setUserHourlyRates(r.data || [])).catch(()=>{});
+    api.get("/api/courses/instructor-course-rates/").then((r) => setInstructorCourseRates(r.data || [])).catch(()=>{});
+  }, []);
 
   // mese/anno attuali come stato, per poter cambiare mese
   const today = new Date();
@@ -214,162 +230,355 @@ export default function ContabilitaDettaglio() {
     return isInt ? `${val}` : `${val}`.replace(".", ",");
   };
 
+  const formatEUR = (n) =>
+    new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
+
+  // bagnino/segreteria/pulizia: prima personalizzata (UserHourlyRate), altrimenti base (CategoryBaseRate)
+  const getHourlyRateForRole = (role) => {
+    const custom = userHourlyRates.find((x) => x.user === Number(userId));
+    if (custom?.rate != null) return Number(custom.rate);
+
+    const base = baseRates.find((x) => x.category === role);
+    if (base?.base_rate != null) return Number(base.base_rate);
+
+    return 0;
+  };
+
+
+  const pretty = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+  // costruisce righe di breakdown e totale
+  const computeMonthlyPayBreakdown = (shifts) => {
+    const HOURLY_INSTRUCTOR_COURSES = new Set(["propaganda", "agonismo"]);
+    const roleHourly = ["bagnino", "segreteria", "pulizia"];
+
+    // aggregazioni
+    const hoursByRole = {};
+    const instructorTurnsByCourse = {};
+    const instructorHoursByCourse = {};
+
+    for (const s of shifts) {
+      if (roleHourly.includes(s.role)) {
+        hoursByRole[s.role] = (hoursByRole[s.role] || 0) + diffHours(s.start_time, s.end_time);
+        continue;
+      }
+
+      if (s.role === "istruttore") {
+        const courseNameRaw = (s.course_type_data?.name || s.course?.name || "Altro").toLowerCase();
+        const courseTypeId = s.course_type_data?.id ?? s.course_type ?? null;
+
+        if (HOURLY_INSTRUCTOR_COURSES.has(courseNameRaw)) {
+          instructorHoursByCourse[courseNameRaw] = (instructorHoursByCourse[courseNameRaw] || 0) + diffHours(s.start_time, s.end_time);
+        } else {
+          // per corsi a turno raggruppiamo per courseTypeId, così la tariffa è corretta
+          const key = String(courseTypeId ?? courseNameRaw);
+          instructorTurnsByCourse[key] = instructorTurnsByCourse[key] || { count: 0, name: courseNameRaw, courseTypeId };
+          instructorTurnsByCourse[key].count += 1;
+        }
+      }
+    }
+
+    const lines = [];
+    let totalEUR = 0;
+
+    // --- bagnino/segreteria/pulizia ---
+    for (const role of roleHourly) {
+      const hours = hoursByRole[role] || 0;
+      if (hours <= 0) continue;
+
+      const rate = getHourlyRateForRole(role);
+      const subtotal = hours * rate;
+      totalEUR += subtotal;
+
+      lines.push({
+        section: "role",
+        label: pretty(role),
+        qtyText: `${formatHours(hours)} ore`,
+        rateText: `${formatEUR(rate)}/h`,
+        subtotal,
+      });
+    }
+
+    // --- istruttore: corsi a turno ---
+    // ordina per nome corso
+    const turnCourses = Object.values(instructorTurnsByCourse).sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "")
+    );
+
+    for (const c of turnCourses) {
+      if (!c.count) continue;
+
+      const rate = getInstructorRateForCourseTypeId(c.courseTypeId);
+      const subtotal = c.count * rate;
+      totalEUR += subtotal;
+
+      lines.push({
+        section: "instructor",
+        label: `Istruttore – ${pretty(c.name)}`,
+        qtyText: `${c.count} ${c.count === 1 ? "turno" : "turni"}`,
+        rateText: `${formatEUR(rate)}/turno`,
+        subtotal,
+      });
+    }
+
+    // --- istruttore: corsi a ore (propaganda/agonismo) ---
+    const hourCourses = Object.entries(instructorHoursByCourse).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
+
+    for (const [courseName, hours] of hourCourses) {
+      if (hours <= 0) continue;
+
+      // tariffa: serve courseTypeId per essere corretti al 100%
+      // qui usiamo una lookup sul primo shift di quel corso per recuperare l'id
+      const sample = shifts.find(
+        (s) =>
+          s.role === "istruttore" &&
+          (s.course_type_data?.name || s.course?.name || "").toLowerCase() === courseName
+      );
+      const courseTypeId = sample?.course_type_data?.id ?? sample?.course_type ?? null;
+
+      const rate = getInstructorRateForCourseTypeId(courseTypeId);
+      const subtotal = hours * rate;
+      totalEUR += subtotal;
+
+      lines.push({
+        section: "instructor",
+        label: `Istruttore – ${pretty(courseName)}`,
+        qtyText: `${formatHours(hours)} ore`,
+        rateText: `${formatEUR(rate)}/h`,
+        subtotal,
+      });
+    }
+
+    return { lines, totalEUR };
+  };
+
+
+  
+
+  // istruttore: prima personalizzata per corso (InstructorCourseRate), altrimenti base del corso (CourseType.base_rate)
+  const getInstructorRateForCourseTypeId = (courseTypeId) => {
+    if (!courseTypeId) return 0;
+
+    const custom = instructorCourseRates.find(
+      (x) => x.instructor === Number(userId) && x.course_type === courseTypeId
+    );
+    if (custom?.rate != null) return Number(custom.rate);
+
+    const base = courseTypes.find((ct) => ct.id === courseTypeId);
+    if (base?.base_rate != null) return Number(base.base_rate);
+
+    return 0;
+  };
+
+  const computeMonthlyPayEUR = (shifts) => {
+    const HOURLY_INSTRUCTOR_COURSES = new Set(["propaganda", "agonismo"]);
+    let total = 0;
+
+    for (const s of shifts) {
+      if (["bagnino", "segreteria", "pulizia"].includes(s.role)) {
+        const hours = diffHours(s.start_time, s.end_time);
+        total += hours * getHourlyRateForRole(s.role);
+        continue;
+      }
+
+      if (s.role === "istruttore") {
+        const courseTypeId = s.course_type_data?.id ?? s.course_type ?? null;
+        const courseName = (s.course_type_data?.name || s.course?.name || "").toLowerCase();
+        const rate = getInstructorRateForCourseTypeId(courseTypeId);
+
+        if (HOURLY_INSTRUCTOR_COURSES.has(courseName)) {
+          const hours = diffHours(s.start_time, s.end_time);
+          total += hours * rate;       // €/h
+        } else {
+          total += 1 * rate;           // €/turno
+        }
+      }
+    }
+
+    return total;
+  };
+
+
+  const { lines: payLines, totalEUR: monthlyPay } = computeMonthlyPayBreakdown(shifts);
+
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-2">{user.username}</h1>
+    <div className="cd-page-6">
+      <div className="cd-container">
 
-      {/* Barra mese con frecce */}
-      <div className="flex items-center gap-4 mb-4">
-        <button
-          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-          onClick={() => changeMonth(-1)}
-        >
-          ◀
-        </button>
+        {/* Header + mese */}
+        <div className="cd-header">
+          <div>
+            <h1 className="cd-title">{user.username}</h1>
+            <div className="cd-subtitle">Contabilità</div>
+          </div>
 
-        <h2 className="text-lg font-semibold">
-          {monthLabel} {currentYear}
-        </h2>
-
-        <button
-          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-          onClick={() => changeMonth(1)}
-        >
-          ▶
-        </button>
-      </div>
-
-      {/* LISTA GIORNI / TURNI */}
-      <div className="bg-white p-4 rounded shadow mb-4">
-        {Object.keys(grouped)
-          .sort() // giorni in ordine crescente
-          .map((day) => (
-            <div key={day} className="mb-4">
-              <h3 className="font-bold text-md mb-2">
-                {new Date(day).toLocaleDateString("it-IT", {
-                  day: "numeric",
-                  month: "long",
-                })}
-              </h3>
-
-              {mergeContiguousShifts(grouped[day]).map((s) => {
-                const start = s.start_time.slice(0, 5);
-                const end = s.end_time.slice(0, 5);
-
-                let extraLabel = null;
-
-                // ---------- ISTRUTTORI: numero corsi + nome corso ----------
-                if (s.role === "istruttore") {
-                  const courseCount = s._is_merged ? s.merged_count : 1;
-                  const label = courseCount === 1 ? "corso" : "corsi";
-
-                  const courseName =
-                    s.merged_course ||
-                    s.course_type_data?.name ||
-                    s.course?.name ||
-                    "";
-
-                  extraLabel = `(${courseCount} ${label}${
-                    courseName ? ` ${courseName}` : ""
-                  })`;
-                }
-
-                // ---------- ALTRI RUOLI: numero di ore ----------
-                if (
-                  ["bagnino", "segreteria", "pulizia"].includes(s.role)
-                ) {
-                  const hours = diffHours(s.start_time, s.end_time);
-                  const label = hours === 1 ? "ora" : "ore";
-                  extraLabel = `(${formatHours(hours)} ${label})`;
-                }
-
-                return (
-                  <div
-                    key={s.id || s.start_time}
-                    className="ml-4 text-sm text-gray-700 mb-1"
-                  >
-                    ▸ {s.role} {start}–{end}
-                    {extraLabel && (
-                      <span className="text-gray-500">
-                        {" "}
-                        {extraLabel}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+          <div className="cd-monthbar">
+            <button className="cd-navbtn" onClick={() => changeMonth(-1)}>
+              ◀
+            </button>
+            <div className="cd-monthlabel">
+              {monthLabel} {currentYear}
             </div>
-          ))}
-      </div>
-
-      {/* ===========================
-          TOTALE MENSILE PER RUOLO
-          =========================== */}
-      <div className="bg-white p-4 rounded shadow">
-        <h3 className="text-md font-bold mb-3">
-          Totale mese – {monthLabel} {currentYear}
-        </h3>
-
-        {/* Bagnino / Segreteria / Pulizia → totale ore */}
-        <div className="mb-3 text-sm">
-        {hoursByRole.bagnino > 0 && (
-          <p>
-            <strong>Bagnino:</strong>{" "}
-            {formatHours(hoursByRole.bagnino)}{" "}
-            {hoursByRole.bagnino === 1 ? "ora" : "ore"}
-          </p>
-        )}
-
-        {hoursByRole.segreteria > 0 && (
-          <p>
-            <strong>Segreteria:</strong>{" "}
-            {formatHours(hoursByRole.segreteria)}{" "}
-            {hoursByRole.segreteria === 1 ? "ora" : "ore"}
-          </p>
-        )}
-
-        {hoursByRole.pulizia > 0 && (
-          <p>
-            <strong>Pulizia:</strong>{" "}
-            {formatHours(hoursByRole.pulizia)}{" "}
-            {hoursByRole.pulizia === 1 ? "ora" : "ore"}
-          </p>
-        )}
-      </div>
-
-
-        {/* Istruttore → totale turni, divisi per tipo corso */}
-        {(
-          Object.entries(instructorByCourse).some(([, count]) => count > 0) ||
-          Object.entries(instructorHoursByCourse).some(([, hours]) => hours > 0)
-        ) && (
-        <div className="text-sm">
-          <p className="mb-1">
-            <strong>Istruttore:</strong>
-          </p>
-
-          <ul className="ml-4 list-disc">
-          {/* Corsi conteggiati a TURNI */}
-          {Object.entries(instructorByCourse)
-            .filter(([, count]) => count > 0)
-            .map(([courseName, count]) => (
-              <li key={`turni-${courseName}`}>
-                {courseName}: {count} {count === 1 ? "turno" : "turni"}
-              </li>
-            ))}
-
-          {/* Corsi conteggiati a ORE (propaganda, agonismo) */}
-          {Object.entries(instructorHoursByCourse)
-            .filter(([, hours]) => hours > 0)
-            .map(([courseName, hours]) => (
-              <li key={`ore-${courseName}`}>
-                {courseName}: {formatHours(hours)} {hours === 1 ? "ora" : "ore"}
-              </li>
-            ))}
-        </ul>
-
+            <button className="cd-navbtn" onClick={() => changeMonth(1)}>
+              ▶
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* LISTA GIORNI / TURNI */}
+        <div className="cd-card">
+          <div className="cd-card-header">
+            <h3 className="cd-card-title">Turni del mese</h3>
+          </div>
+
+          <div className="cd-card-body">
+            {Object.keys(grouped).sort().map((day) => (
+              <div key={day} className="cd-day">
+                <div className="cd-day-title">
+                  <span className="cd-day-dot" />
+                  {new Date(day).toLocaleDateString("it-IT", {
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </div>
+
+                {mergeContiguousShifts(grouped[day]).map((s) => {
+                  const start = s.start_time.slice(0, 5);
+                  const end = s.end_time.slice(0, 5);
+
+                  let extraLabel = null;
+
+                  // ---------- ISTRUTTORI: numero corsi + nome corso ----------
+                  if (s.role === "istruttore") {
+                    const courseCount = s._is_merged ? s.merged_count : 1;
+                    const label = courseCount === 1 ? "corso" : "corsi";
+
+                    const courseName =
+                      s.merged_course ||
+                      s.course_type_data?.name ||
+                      s.course?.name ||
+                      "";
+
+                    extraLabel = `(${courseCount} ${label}${
+                      courseName ? ` ${courseName}` : ""
+                    })`;
+                  }
+
+                  // ---------- ALTRI RUOLI: numero di ore ----------
+                  if (["bagnino", "segreteria", "pulizia"].includes(s.role)) {
+                    const hours = diffHours(s.start_time, s.end_time);
+                    const label = hours === 1 ? "ora" : "ore";
+                    extraLabel = `(${formatHours(hours)} ${label})`;
+                  }
+
+                  return (
+                    <div key={s.id || s.start_time} className="cd-shift">
+                      <div className="cd-shift-left">
+                        <span className="cd-bullet">▸</span>
+                        <span className="cd-role">{s.role}</span>
+                        <span className="cd-time">
+                          {start}–{end}
+                        </span>
+                      </div>
+
+                      {extraLabel && <span className="cd-meta cd-pill">{extraLabel}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* TOTALI MESE */}
+        <div className="cd-card">
+          <div className="cd-card-header">
+            <h3 className="cd-card-title">
+              Totale mese – {monthLabel} {currentYear}
+            </h3>
+          </div>
+
+          <div className="cd-card-body">
+            {/* Bagnino / Segreteria / Pulizia → totale ore */}
+            <div className="cd-totals">
+              {hoursByRole.bagnino > 0 && (
+                <p>
+                  <strong>Bagnino:</strong> {formatHours(hoursByRole.bagnino)}{" "}
+                  {hoursByRole.bagnino === 1 ? "ora" : "ore"}
+                </p>
+              )}
+
+              {hoursByRole.segreteria > 0 && (
+                <p>
+                  <strong>Segreteria:</strong> {formatHours(hoursByRole.segreteria)}{" "}
+                  {hoursByRole.segreteria === 1 ? "ora" : "ore"}
+                </p>
+              )}
+
+              {hoursByRole.pulizia > 0 && (
+                <p>
+                  <strong>Pulizia:</strong> {formatHours(hoursByRole.pulizia)}{" "}
+                  {hoursByRole.pulizia === 1 ? "ora" : "ore"}
+                </p>
+              )}
+            </div>
+
+            {/* Istruttore */}
+            {(
+              Object.entries(instructorByCourse).some(([, count]) => count > 0) ||
+              Object.entries(instructorHoursByCourse).some(([, hours]) => hours > 0)
+            ) && (
+              <div className="cd-section">
+                <p className="cd-subtitle" style={{ marginTop: 8 }}>
+                  <strong>Istruttore</strong>
+                </p>
+
+                <ul className="cd-list">
+                  {/* Corsi conteggiati a TURNI */}
+                  {Object.entries(instructorByCourse)
+                    .filter(([, count]) => count > 0)
+                    .map(([courseName, count]) => (
+                      <li key={`turni-${courseName}`}>
+                        {courseName}: {count} {count === 1 ? "turno" : "turni"}
+                      </li>
+                    ))}
+
+                  {/* Corsi conteggiati a ORE (propaganda, agonismo) */}
+                  {Object.entries(instructorHoursByCourse)
+                    .filter(([, hours]) => hours > 0)
+                    .map(([courseName, hours]) => (
+                      <li key={`ore-${courseName}`}>
+                        {courseName}: {formatHours(hours)} {hours === 1 ? "ora" : "ore"}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Compenso mese */}
+            {payLines.length > 0 && (
+              <div className="cd-paybox">
+                <p className="cd-paybox-title">Compenso mese</p>
+
+                <ul className="cd-list">
+                  {payLines.map((l) => (
+                    <li key={`${l.label}-${l.qtyText}-${l.rateText}`}>
+                      {l.label}: {l.qtyText} × {l.rateText} = {formatEUR(l.subtotal)}
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="cd-paytotal">
+                  <span>Totale</span>
+                  <span>{formatEUR(monthlyPay)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
       </div>
     </div>
