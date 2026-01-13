@@ -173,6 +173,7 @@ export default function MyShifts() {
         request_id: id,
         action,
       });
+      loadShifts();
       loadRequests();
     } catch {
       alert("Errore nella risposta.");

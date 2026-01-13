@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'sslserver',
 
     # Third party
     'rest_framework',
@@ -142,13 +143,30 @@ REST_FRAMEWORK = {
     ),
 }
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+}
 
 
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+
+
+#CORS_ALLOWED_ORIGINS = [
+#    "http://localhost:5173",
+#    "http://127.0.0.1:5173",
+#]
 
 CORS_ALLOW_ALL_ORIGINS = True #DA RIMUOVERE IN PRODUZIONE
+CORS_ALLOW_CREDENTIALS = True
+
 
