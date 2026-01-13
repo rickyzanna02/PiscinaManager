@@ -4,7 +4,11 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+from rest_framework.permissions import IsAuthenticated
 User = get_user_model()
+from users.serializers import UserListSerializer
+
+
 
 from rest_framework import generics
 
@@ -698,6 +702,22 @@ class ShiftViewSet(viewsets.ModelViewSet):
         return Response({
             "published": [d.isoformat() for d in weeks]
         })
+    
+
+    @action(detail=True, methods=["get"], permission_classes=[IsAuthenticated])
+    def available_collaborators(self, request, pk=None):
+        shift = self.get_object()
+        role = shift.role
+
+        users = (
+            User.objects
+            .filter(roles__code=role)
+            .exclude(id=shift.user_id)
+        )
+
+        serializer = UserListSerializer(users, many=True)
+        return Response(serializer.data)
+
 
 
 

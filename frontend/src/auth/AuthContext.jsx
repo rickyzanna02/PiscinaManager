@@ -7,26 +7,35 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 🔐 LOGIN
   const login = async (username, password) => {
     const res = await api.post("/api/auth/login/", {
       username,
       password,
     });
 
-    localStorage.setItem("access_token", res.data.access);
+    // ✅ TOKEN STANDARD SIMPLEJWT
+    localStorage.setItem("access", res.data.access);
+    localStorage.setItem("refresh", res.data.refresh);
 
+    // 🔁 carica utente
     const me = await api.get("/api/auth/me/");
     setUser(me.data);
+
     return me.data;
   };
 
+  // 🚪 LOGOUT
   const logout = () => {
-    localStorage.removeItem("access_token");
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
     setUser(null);
   };
 
+  // 🔁 RICOSTRUZIONE UTENTE AL REFRESH
   const loadUser = async () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem("access");
+
     if (!token) {
       setLoading(false);
       return;
@@ -36,7 +45,9 @@ export function AuthProvider({ children }) {
       const me = await api.get("/api/auth/me/");
       setUser(me.data);
     } catch {
-      localStorage.removeItem("access_token");
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      setUser(null);
     } finally {
       setLoading(false);
     }

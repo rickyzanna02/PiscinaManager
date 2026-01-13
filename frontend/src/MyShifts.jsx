@@ -5,8 +5,12 @@ import interactionPlugin from "@fullcalendar/interaction";
 import itLocale from "@fullcalendar/core/locales/it";
 import api from "./api";
 import "./myshifts.css";
+import { useAuth } from "./auth/AuthContext";
 
-export default function MyShifts({ userId }) {
+
+
+
+export default function MyShifts() {
   const [shifts, setShifts] = useState([]);
 
   // --- Tabs
@@ -24,6 +28,9 @@ export default function MyShifts({ userId }) {
   // --- Richieste sostituzione
   const [sentRequests, setSentRequests] = useState([]);
   const [receivedRequests, setReceivedRequests] = useState([]);
+
+  const { user } = useAuth();
+  const userId = user?.id;
 
   // =====================================================
   // CARICA TURNI
@@ -73,10 +80,8 @@ export default function MyShifts({ userId }) {
   // =====================================================
   const loadCollaborators = () => {
     api
-      .get("/api/users/")
-      .then((res) => {
-        setCollaborators((res.data || []).filter((u) => u.id !== userId));
-      })
+      .get(`/api/shifts/${selectedShift.id}/available_collaborators/`)
+      .then((res) => setCollaborators(res.data || []))
       .catch((err) => console.error("Errore caricamento utenti:", err));
   };
 
@@ -99,7 +104,6 @@ export default function MyShifts({ userId }) {
   useEffect(() => {
     if (userId) {
       loadShifts();
-      loadCollaborators();
       loadRequests();
     }
   }, [userId]);
@@ -114,6 +118,11 @@ export default function MyShifts({ userId }) {
     setPartialStart("");
     setPartialEnd("");
     setSelectedUsers([]);
+    // 🔽 carica collaboratori corretti
+    api
+      .get(`/api/shifts/${fcEvent.id}/available_collaborators/`)
+      .then((res) => setCollaborators(res.data || []))
+      .catch(() => setCollaborators([]));
   };
   //////////////////////
   const getAcceptedByName = (r) => {
@@ -546,10 +555,7 @@ const renderRequests = () => (
                         }
                       }}
                     />
-                    <span>
-                      {u.username}{" "}
-                      <span className="text-xs text-gray-500">({u.role})</span>
-                    </span>
+                    <span>{u.username}</span>
                   </label>
                 ))}
               </div>

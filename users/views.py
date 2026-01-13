@@ -5,7 +5,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from .serializers import UserListSerializer
-
+from rest_framework.permissions import IsAdminUser
 User = get_user_model()
 
 
@@ -14,13 +14,19 @@ class UserViewSet(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = User.objects.all().order_by("username")
+        user = self.request.user
 
-        role = self.request.query_params.get("role")
-        if role:
-            queryset = queryset.filter(roles__code=role)
+        # collaboratori NON vedono utenti
+        if not (user.is_staff or user.roles.filter(code="contabilita").exists()):
+            return User.objects.none()
 
-        return queryset.distinct()
+        qs = User.objects.all()
+
+        if self.request.query_params.get("only_collaborators") == "true":
+            qs = qs.filter(is_staff=False).exclude(roles__code="contabilita")
+
+        return qs.distinct().order_by("username")
+
 
 
 

@@ -27,23 +27,23 @@ export default function AppHeader() {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Navigazione rapida */}
+        {/* 🔑 Navigazione rapida SOLO ADMIN */}
         {user.is_staff && (
-          <button
-            onClick={() => navigate("/admin")}
-            className="text-sm px-3 py-1 rounded bg-blue-100 hover:bg-blue-200"
-          >
-            Admin
-          </button>
-        )}
+          <>
+            <button
+              onClick={() => navigate("/admin")}
+              className="text-sm px-3 py-1 rounded bg-blue-100 hover:bg-blue-200"
+            >
+              Admin
+            </button>
 
-        {(user.is_staff || user.roles?.includes("contabilita")) && (
-          <button
-            onClick={() => navigate("/contabilita")}
-            className="text-sm px-3 py-1 rounded bg-green-100 hover:bg-green-200"
-          >
-            Contabilità
-          </button>
+            <button
+              onClick={() => navigate("/contabilita")}
+              className="text-sm px-3 py-1 rounded bg-green-100 hover:bg-green-200"
+            >
+              Contabilità
+            </button>
+          </>
         )}
 
         <button
