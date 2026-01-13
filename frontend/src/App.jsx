@@ -169,8 +169,13 @@ export default function App() {
 
   // carica utenti
   useEffect(() => {
-    api.get("/api/users/").then((res) => setUsers(res.data || []));
-  }, []);
+    api
+      .get("/api/users/", {
+        params: { role: category },
+      })
+      .then((res) => setUsers(res.data || []));
+  }, [category]);
+
 
   // ricarica events dai template
   
@@ -641,7 +646,7 @@ export default function App() {
                   </option>
                   {users.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.username} ({u.role})
+                      {u.username}
                     </option>
                   ))}
                 </select>
@@ -745,7 +750,7 @@ export default function App() {
                   </option>
                   {users.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.username} ({u.role})
+                      {u.username}
                     </option>
                   ))}
                 </select>
@@ -921,7 +926,7 @@ export default function App() {
               </option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.username} ({u.role})
+                  {u.username}
                 </option>
               ))}
             </select>
@@ -1042,7 +1047,7 @@ export default function App() {
               </option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.username} ({u.role})
+                  {u.username}
                 </option>
               ))}
             </select>
@@ -1132,7 +1137,7 @@ function EditForm({ event, users, onSave, onCancel }) {
         </option>
         {users.map((u) => (
           <option key={u.id} value={u.id}>
-            {u.username} ({u.role})
+            {u.username}
           </option>
         ))}
       </select>

@@ -347,6 +347,8 @@ DA FARE:
 
       💡 Con un login reale questo NON succederà più.
 
+3- hardering sicurezza su endpoint, rendere accessibili solo ad utenti admin 
+
 
 
 

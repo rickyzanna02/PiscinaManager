@@ -3,7 +3,9 @@ from calendar import monthrange
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
 from rest_framework import generics
 
 from .models import Shift, TemplateShift, PayRate, ReplacementRequest, PublishedWeek

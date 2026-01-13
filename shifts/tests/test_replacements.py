@@ -7,8 +7,10 @@ from datetime import time, date
 from django.contrib.auth import get_user_model
 UserReal = get_user_model()
 
-import django.contrib.auth.models as auth_models
-auth_models.User = UserReal
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+
 # -----------------------------------------
 User = UserReal
 from shifts.models import Shift, ReplacementRequest

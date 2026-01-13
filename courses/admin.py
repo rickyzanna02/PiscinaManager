@@ -19,7 +19,7 @@ class UserHourlyRateAdmin(admin.ModelAdmin):
     list_display = ("user", "rate")
     search_fields = ("user__username",)
     autocomplete_fields = ("user",)
-    list_filter = ("user__role",)   # ⭐ se il tuo User ha role
+    
     ordering = ("user__username",)
 
 
