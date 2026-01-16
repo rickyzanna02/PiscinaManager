@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -6,6 +5,8 @@ import itLocale from "@fullcalendar/core/locales/it";
 import api from "./api";
 import "./myshifts.css";
 import { useAuth } from "./auth/AuthContext";
+import { useEffect, useState, useCallback } from "react";
+
 
 
 
@@ -29,13 +30,31 @@ export default function MyShifts() {
   const [sentRequests, setSentRequests] = useState([]);
   const [receivedRequests, setReceivedRequests] = useState([]);
 
-  const { user } = useAuth();
+  const [hasNewResponses, setHasNewResponses] = useState(false);
+  const LAST_SEEN_SENT_REPLIES = "last_seen_sent_replies";
+
+  const { user, logout} = useAuth();
+  
   const userId = user?.id;
+
+  const handle401 = useCallback((err) => {
+    if (err.response?.status === 401) {
+      console.warn("Sessione scaduta");
+
+      // OPZIONE A: logout
+      logout();
+
+      // OPZIONE B: stop polling (minimo indispensabile)
+      setHasNewResponses(false);
+    }
+  }, [logout]);
+
 
   // =====================================================
   // CARICA TURNI
   // =====================================================
-  const loadShifts = () => {
+  const loadShifts = useCallback(() => {
+    if (!userId || !user) return; 
     api
       .get(`/api/shifts/?user=${userId}`)
       .then((res) => {
@@ -72,41 +91,98 @@ export default function MyShifts() {
 
         setShifts(mapped);
       })
-      .catch((err) => console.error("Errore caricamento turni:", err));
-  };
+      .catch((err) => {
+        handle401(err);
+        console.error("Errore caricamento turni:", err);
+      });
+  }, [userId, user]);
 
   // =====================================================
   // CARICA COLLABORATORI
   // =====================================================
   const loadCollaborators = () => {
+    if (!selectedShift || !user) return;
+
     api
       .get(`/api/shifts/${selectedShift.id}/available_collaborators/`)
       .then((res) => setCollaborators(res.data || []))
-      .catch((err) => console.error("Errore caricamento utenti:", err));
+      .catch((err) => {
+        handle401(err);
+        console.error("Errore caricamento utenti:", err);
+      });
   };
+
+
+  const hasPendingRequests = receivedRequests.some(
+    
+    (r) => r.status === "pending"
+  );
+  const showRedDot = hasPendingRequests || hasNewResponses;
+
+  console.log("RECEIVED REQUESTS:", receivedRequests);
+  console.log(
+    "HAS PENDING:",
+    receivedRequests.map(r => r.status)
+  );
+
 
   // =====================================================
   // CARICA RICHIESTE INVIATE / RICEVUTE
   // =====================================================
-  const loadRequests = () => {
-    if (!userId) return;
+  const loadRequests = useCallback(() => {
+    if (!userId || !user) return;
 
     api
       .get(`/api/shifts/replacements_sent/?user_id=${userId}`)
-      .then((res) => setSentRequests(res.data || []));
+      .then((res) => {
+        const data = res.data || [];
+        setSentRequests(data);
+
+        const lastSeenRaw = localStorage.getItem(LAST_SEEN_SENT_REPLIES);
+        const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
+
+        const hasUnread = data.some((r) =>
+          r.status !== "pending" &&
+          r.updated_at &&
+          (!lastSeen || new Date(r.updated_at) > lastSeen)
+        );
+
+        setHasNewResponses(hasUnread);
+      })
+      .catch(handle401); 
+
 
     api
       .get(`/api/shifts/replacements_received/?user_id=${userId}&only_pending=false`)
-      .then((res) => setReceivedRequests(res.data || []));
+      .then((res) => setReceivedRequests(res.data || []))
+      .catch(handle401); 
 
-  };
+  }, [userId, user]);
 
   useEffect(() => {
     if (userId) {
       loadShifts();
       loadRequests();
     }
-  }, [userId]);
+  }, [userId, loadShifts, loadRequests]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const interval = setInterval(loadRequests, 5000);
+    return () => clearInterval(interval);
+  }, [userId, loadRequests]);
+
+
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const interval = setInterval(loadShifts, 5000);
+    return () => clearInterval(interval);
+  }, [userId, loadShifts]);
+
+
 
   // =====================================================
   // APERTURA POPUP SOSTITUZIONE
@@ -603,14 +679,29 @@ const renderRequests = () => (
         </button>
 
         <button
-          onClick={() => setActiveTab("requests")}
-          className={`px-4 py-2 rounded ${
+          onClick={() => {
+            setActiveTab("requests");
+
+            // segna come viste le risposte ricevute
+            localStorage.setItem(
+              LAST_SEEN_SENT_REPLIES,
+              new Date().toISOString()
+            );
+
+            setHasNewResponses(false);
+          }}
+          className={`relative px-4 py-2 rounded ${
             activeTab === "requests"
               ? "bg-blue-600 text-white"
               : "bg-gray-300 text-gray-800"
           }`}
         >
+
           Sostituzioni
+
+          {showRedDot && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
+          )}
         </button>
       </div>
 

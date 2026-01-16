@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
 User = get_user_model()
 from users.serializers import UserListSerializer
+from django.utils import timezone
 
 
 
@@ -436,7 +437,8 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
             other_requests.filter(status='pending').update(
                 status='cancelled',
-                closed_by=sostituto     # chi ha accettato
+                closed_by=sostituto,     # chi ha accettato
+                updated_at=timezone.now()
             )
 
 
@@ -463,12 +465,14 @@ class ShiftViewSet(viewsets.ModelViewSet):
         # 4 e 5
         overlapping.filter(status='pending').update(
             status='cancelled',
-            closed_by=sostituto
+            closed_by=sostituto,
+            updated_at=timezone.now()
         )
 
         total_reqs.filter(status='pending').update(
             status='cancelled',
-            closed_by=sostituto
+            closed_by=sostituto,
+            updated_at=timezone.now()
         )
 
 
