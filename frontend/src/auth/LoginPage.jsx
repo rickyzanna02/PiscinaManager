@@ -43,7 +43,7 @@ export default function LoginPage() {
         className="bg-white p-6 rounded shadow w-80"
       >
         <h1 className="text-xl font-bold mb-4 text-center">
-          Login Collaboratore
+          Login
         </h1>
 
         {error && (
@@ -73,10 +73,25 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded"
         >
           {loading ? "Accesso..." : "Accedi"}
         </button>
+
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-600 mb-2">
+            Non hai un account?
+          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate("/register")}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded"
+          >
+            Registrati
+          </button>
+        </div>
+
       </form>
     </div>
   );

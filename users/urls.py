@@ -17,7 +17,7 @@ urlpatterns = [
     path("me/", MeView.as_view(), name="me"),
     path("roles/", UserRoleListView.as_view()),
     path("me/", MeView.as_view(), name="me"),
-    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
+    path("change-password/", ChangePasswordView.as_view(), name="change-password"),    
 
     # 👥 Utenti
     path("", include(router.urls)),

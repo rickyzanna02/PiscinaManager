@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 
+
+
 export default function RegisterPage() {
   const navigate = useNavigate();
 
@@ -11,10 +13,36 @@ export default function RegisterPage() {
     first_name: "",
     last_name: "",
     date_of_birth: "",
+    roles: [],
   });
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState([]);
+
+  useEffect(() => {
+    api
+      .get("/api/auth/roles/")
+      // filtra se ruolo diverso da contabilita
+      .then((res) => {
+        const filteredRoles = res.data.filter(role => role.label.toLowerCase() !== "contabilita");
+        setAvailableRoles(filteredRoles);
+      })
+      .catch(() => {
+        setError("Errore nel caricamento dei ruoli");
+      });
+  }, []);
+
+  const toggleRole = (roleId) => {
+    setForm((prev) => ({
+      ...prev,
+      roles: prev.roles.includes(roleId)
+        ? prev.roles.filter((id) => id !== roleId)
+        : [...prev.roles, roleId],
+    }));
+  };
+
+
 
   const handleChange = (e) => {
     setForm({
@@ -31,7 +59,7 @@ export default function RegisterPage() {
     try {
       await api.post("/api/auth/register/", {
         ...form,
-        roles: [], // per ora vuoto (ruoli assegnati dopo)
+        roles: form.roles, 
       });
 
       // 👉 dopo registrazione vai al login
@@ -53,7 +81,7 @@ export default function RegisterPage() {
         className="bg-white p-6 rounded shadow w-96"
       >
         <h1 className="text-xl font-bold mb-4 text-center">
-          Registrazione collaboratore
+          Registrazione
         </h1>
 
         {error && (
@@ -84,6 +112,7 @@ export default function RegisterPage() {
           name="date_of_birth"
           className="w-full border p-2 rounded mb-2"
           onChange={handleChange}
+          required
         />
 
         <label className="block mb-1 text-sm font-semibold">Username</label>
@@ -103,6 +132,32 @@ export default function RegisterPage() {
           required
         />
 
+        <label className="block mb-2 text-sm font-semibold">
+          Ruoli:
+        </label>
+
+        <div className="border rounded p-3 mb-4 max-h-40 overflow-y-auto text-sm">
+          {availableRoles.length === 0 && (
+            <div className="text-gray-500">
+              Nessun ruolo disponibile
+            </div>
+          )}
+
+          {availableRoles.map((role) => (
+            <label
+              key={role.id}
+              className="flex items-center gap-2 mb-1 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={form.roles.includes(role.id)}
+                onChange={() => toggleRole(role.id)}
+              />
+              <span>{role.label}</span>
+            </label>
+          ))}
+        </div>
+
         <button
           type="submit"
           disabled={loading}
@@ -111,17 +166,24 @@ export default function RegisterPage() {
           {loading ? "Registrazione..." : "Registrati"}
         </button>
 
-        <p className="text-sm text-center mt-4">
-          Hai già un account?{" "}
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-600 mb-2">
+            Hai già un account?
+          </p>
+
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="text-blue-600 underline"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded"
           >
             Accedi
           </button>
-        </p>
+        </div>
+        <pre className="text-xs bg-gray-100 p-2 mb-2">
+        {JSON.stringify(form.roles, null, 2)}
+        </pre>
       </form>
     </div>
   );
 }
+
