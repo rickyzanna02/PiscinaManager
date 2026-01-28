@@ -22,6 +22,7 @@ import ContabilitaDettaglio from "./ContabilitaDettaglio";
 import RegisterPage from "./auth/RegisterPage";
 import RequireStaff from "./auth/RequireStaff";
 import RequireContabilita from "./auth/RequireContabilita";
+import Profile from "./components/Profile";
 
 
 
@@ -78,6 +79,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <RequireContabilita>
                 <ContabilitaDettaglio />
               </RequireContabilita>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
             }
           />
 
