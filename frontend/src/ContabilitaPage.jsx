@@ -7,6 +7,24 @@ export default function ContabilitaPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [checkedUsers, setCheckedUsers] = useState({});
+  const [showOnlyUnchecked, setShowOnlyUnchecked] = useState(false);
+
+  const toggleChecked = async (userId) => {
+    try {
+      const res = await api.post(
+        `/api/auth/contabilita/checks/${userId}/`
+      );
+
+      setCheckedUsers(prev => ({
+        ...prev,
+        [userId]: res.data.checked,
+      }));
+    } catch {
+      alert("Errore nel salvataggio dello stato");
+    }
+  };
+
 
   useEffect(() => {
     api
@@ -23,7 +41,20 @@ export default function ContabilitaPage() {
       .finally(() => {
         setLoading(false);
       });
+
+      api.get("/api/auth/contabilita/checks/")
+        .then(res => {
+        const map = {};
+        res.data.forEach(c => {
+        map[c.user_id] = true;
+        });
+        setCheckedUsers(map);
+      });
   }, []);
+
+  const filteredUsers = showOnlyUnchecked
+  ? users.filter((u) => !checkedUsers[u.id])
+  : users;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -35,31 +66,53 @@ export default function ContabilitaPage() {
           Elenco Collaboratori
         </h1>
 
-        {loading && (
-          <p className="text-gray-600">Caricamento…</p>
-        )}
-
-        {error && (
-          <p className="text-red-600">{error}</p>
-        )}
+        <div className="mb-4 flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="only-unchecked"
+            checked={showOnlyUnchecked}
+            onChange={(e) => setShowOnlyUnchecked(e.target.checked)}
+          />
+          <label htmlFor="only-unchecked" className="text-sm">
+            Vedi solo da controllare
+          </label>
+        </div>
 
         {!loading && !error && (
           <div className="bg-white p-4 rounded shadow max-w-md">
-            {users.length === 0 && (
+            {users.length === 0 ? (
               <p className="text-gray-500 italic">
                 Nessun collaboratore trovato
               </p>
-            )}
+            ) : filteredUsers.length === 0 ? (
+              <p className="text-gray-500 italic">
+                Tutti i collaboratori sono già stati controllati 🎉
+              </p>
+            ) : (
+              filteredUsers.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between p-2 border-b last:border-none hover:bg-gray-100"
+                >
+                  <Link
+                    to={`/contabilita/${u.id}`}
+                    className={`flex-1 ${
+                      checkedUsers[u.id] ? "text-gray-400 line-through" : ""
+                    }`}
+                  >
+                    {u.username}
+                  </Link>
 
-            {users.map((u) => (
-              <Link
-                key={u.id}
-                to={`/contabilita/${u.id}`}
-                className="block p-2 border-b last:border-none hover:bg-gray-100"
-              >
-                {u.username}
-              </Link>
-            ))}
+                  <input
+                    type="checkbox"
+                    checked={!!checkedUsers[u.id]}
+                    onChange={() => toggleChecked(u.id)}
+                    title="Contrassegna come già controllato"
+                    className="ml-3"
+                  />
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

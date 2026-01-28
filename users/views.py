@@ -7,22 +7,13 @@ from django.contrib.auth import get_user_model
 from .serializers import UserListSerializer
 from rest_framework.permissions import IsAdminUser
 from rest_framework.generics import ListAPIView
-from .models import UserRole
+from .models import UserRole, ContabilitaCheck, User
 from .serializers import UserRoleSerializer
 User = get_user_model()
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework import status
-from .models import User
-
-
-
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
@@ -134,3 +125,37 @@ class ChangePasswordView(APIView):
         {"detail": "Password aggiornata"},
         status=status.HTTP_200_OK
         )
+    
+class ToggleContabilitaCheckView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request, user_id):
+        checked_by = request.user
+        user = User.objects.get(id=user_id)
+
+
+        obj, created = ContabilitaCheck.objects.get_or_create(
+        checked_by=checked_by,
+        user=user
+        )
+        if not created:
+            obj.delete()
+            return Response({"checked": False})
+
+
+        return Response({"checked": True})
+    
+class MyContabilitaChecksView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        checks = ContabilitaCheck.objects.filter(
+            checked_by=request.user
+        )
+
+        return Response([
+            {
+                "user_id": c.user.id,
+                "checked_at": c.checked_at
+            }
+            for c in checks
+        ])

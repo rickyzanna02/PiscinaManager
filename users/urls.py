@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from .views import ChangePasswordView, RegisterView, MeView, UserRoleListView, UserViewSet
+from .views import ChangePasswordView, MyContabilitaChecksView, RegisterView, MeView, UserRoleListView, UserViewSet, ToggleContabilitaCheckView, MyContabilitaChecksView
 
 router = DefaultRouter()
 router.register("users", UserViewSet, basename="users")
@@ -18,6 +18,8 @@ urlpatterns = [
     path("roles/", UserRoleListView.as_view()),
     path("me/", MeView.as_view(), name="me"),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),    
+    path("contabilita/checks/", MyContabilitaChecksView.as_view()),
+    path("contabilita/checks/<int:user_id>/",ToggleContabilitaCheckView.as_view()),
 
     # 👥 Utenti
     path("", include(router.urls)),

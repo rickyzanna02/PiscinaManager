@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import User, UserRole
+from .models import User, UserRole, ContabilitaCheck
 from rest_framework import serializers
-from .models import User
+
 
 class UserListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -52,3 +52,13 @@ class RegisterSerializer(serializers.ModelSerializer):
             user.roles.set(roles)
 
         return user
+    
+
+
+
+class ContabilitaCheckSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.id")
+
+    class Meta:
+        model = ContabilitaCheck
+        fields = ("id", "user_id", "checked_at")
