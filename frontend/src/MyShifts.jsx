@@ -36,6 +36,10 @@ export default function MyShifts() {
   const { user, logout} = useAuth();
   
   const userId = user?.id;
+  //data
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
 
   const handle401 = useCallback((err) => {
     if (err.response?.status === 401) {
@@ -133,7 +137,7 @@ export default function MyShifts() {
     if (!userId || !user) return;
 
     api
-      .get(`/api/shifts/replacements_sent/?user_id=${userId}`)
+      .get(`/api/shifts/replacements_sent/?user_id=${userId}&year=${filterYear}&month=${filterMonth}`)
       .then((res) => {
         const data = res.data || [];
         setSentRequests(data);
@@ -153,11 +157,11 @@ export default function MyShifts() {
 
 
     api
-      .get(`/api/shifts/replacements_received/?user_id=${userId}&only_pending=false`)
+      .get(`/api/shifts/replacements_received/?user_id=${userId}&year=${filterYear}&month=${filterMonth}&only_pending=false`)
       .then((res) => setReceivedRequests(res.data || []))
       .catch(handle401); 
 
-  }, [userId, user]);
+  }, [userId, user, filterYear, filterMonth]);
 
   useEffect(() => {
     if (userId) {
@@ -324,120 +328,64 @@ export default function MyShifts() {
 // =====================================================
 // RENDER TAB SOSTITUZIONI
 // =====================================================
+
 const renderRequests = () => (
-  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div className="mt-4">
+    {/* FILTRO MESE */}
+    <div className="mb-4">
+    <input
+    type="month"
+    value={`${filterYear}-${String(filterMonth).padStart(2, "0")}`}
+    onChange={(e) => {
+    const [y, m] = e.target.value.split("-");
+    setFilterYear(Number(y));
+    setFilterMonth(Number(m));
+    }}
+    className="border rounded px-3 py-1 text-sm"
+    />
+    </div> 
+    
+    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
 
-    {/* --- RICHIESTE INVIATE --- */}
-    <div className="bg-white p-4 rounded shadow">
-      <h2 className="font-bold text-lg mb-2">Richieste inviate</h2>
+      {/* --- RICHIESTE INVIATE --- */}
+      <div className="bg-white p-4 rounded shadow">
+        <h2 className="font-bold text-lg mb-2">Richieste inviate</h2>
 
-      {sentRequests.length === 0 && (
-        <div className="text-gray-500 text-sm">
-          Nessuna richiesta inviata.
-        </div>
-      )}
-
-      {sentRequests.map((r) => {
-        const courseName = r.shift_info.course_type_data?.name || null;
-        const header = courseName
-          ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
-          : `${r.shift_info.role} – ${r.shift_info.date}`;
-
-        return (
-          <div key={r.id} className="border p-2 mb-2 rounded text-sm">
-            <div className="font-semibold">{header}</div>
-
-            <div>
-              Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
-            </div>
-
-            {r.partial && (
-              <div>
-                Parte richiesta: {r.partial_start} → {r.partial_end}
-              </div>
-            )}
-
-            <div>
-              Verso: <strong>{r.target_user_name}</strong>
-            </div>
-
-            <div className="mt-2">
-              <strong>Stato: </strong>
-              {r.status === "pending" && (
-                <span className="text-gray-600">in attesa</span>
-              )}
-              {r.status === "accepted" && (
-                <span className="text-green-600">accettata</span>
-              )}
-              {r.status === "rejected" && (
-                <span className="text-red-600">rifiutata</span>
-              )}
-              {r.status === "cancelled" && (
-                <span className="text-red-600">
-                  {getAcceptedByName(r)
-                    ? `già accettata da ${getAcceptedByName(r)}`
-                    : "cancellata"}
-                </span>
-              )}
-            </div>
+        {sentRequests.length === 0 && (
+          <div className="text-gray-500 text-sm">
+            Nessuna richiesta inviata.
           </div>
-        );
-      })}
-    </div>
+        )}
 
-    {/* --- RICHIESTE RICEVUTE --- */}
-    <div className="bg-white p-4 rounded shadow">
-      <h2 className="font-bold text-lg mb-2">Richieste ricevute</h2>
+        {sentRequests.map((r) => {
+          const courseName = r.shift_info.course_type_data?.name || null;
+          const header = courseName
+            ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
+            : `${r.shift_info.role} – ${r.shift_info.date}`;
 
-      {receivedRequests.length === 0 && (
-        <div className="text-gray-500 text-sm">Nessuna richiesta ricevuta.</div>
-      )}
+          return (
+            <div key={r.id} className="border p-2 mb-2 rounded text-sm">
+              <div className="font-semibold">{header}</div>
 
-      {receivedRequests.map((r) => {
-        const courseName = r.shift_info.course_type_data?.name || null;
-        const header = courseName
-          ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
-          : `${r.shift_info.role} – ${r.shift_info.date}`;
-
-        return (
-          <div key={r.id} className="border p-2 mb-2 rounded text-sm">
-            <div className="font-semibold">{header}</div>
-
-            <div>
-              Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
-            </div>
-
-            {r.partial && (
               <div>
-                Parte richiesta: {r.partial_start} → {r.partial_end}
+                Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
               </div>
-            )}
 
-            <div>
-              Richiesta da: <strong>{r.requester_name}</strong>
-            </div>
+              {r.partial && (
+                <div>
+                  Parte richiesta: {r.partial_start} → {r.partial_end}
+                </div>
+              )}
 
-            {/* SE È PENDING MOSTRA PULSANTI */}
-            {r.status === "pending" ? (
-              <div className="flex gap-2 mt-2">
-                <button
-                  className="bg-green-500 text-white px-3 py-1 rounded text-sm"
-                  onClick={() => respond(r.id, "accepted")}
-                >
-                  Accetta
-                </button>
-
-                <button
-                  className="bg-red-500 text-white px-3 py-1 rounded text-sm"
-                  onClick={() => respond(r.id, "rejected")}
-                >
-                  Rifiuta
-                </button>
+              <div>
+                Verso: <strong>{r.target_user_name}</strong>
               </div>
-            ) : (
-              /* SE NON È PENDING MOSTRA LO STATO */
-              <p className="mt-2 text-sm">
+
+              <div className="mt-2">
                 <strong>Stato: </strong>
+                {r.status === "pending" && (
+                  <span className="text-gray-600">in attesa</span>
+                )}
                 {r.status === "accepted" && (
                   <span className="text-green-600">accettata</span>
                 )}
@@ -451,14 +399,87 @@ const renderRequests = () => (
                       : "cancellata"}
                   </span>
                 )}
-              </p>
-            )}
-          </div>
-        );
-      })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
+      {/* --- RICHIESTE RICEVUTE --- */}
+      <div className="bg-white p-4 rounded shadow">
+        <h2 className="font-bold text-lg mb-2">Richieste ricevute</h2>
+
+        {receivedRequests.length === 0 && (
+          <div className="text-gray-500 text-sm">Nessuna richiesta ricevuta.</div>
+        )}
+
+        {receivedRequests.map((r) => {
+          const courseName = r.shift_info.course_type_data?.name || null;
+          const header = courseName
+            ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
+            : `${r.shift_info.role} – ${r.shift_info.date}`;
+
+          return (
+            <div key={r.id} className="border p-2 mb-2 rounded text-sm">
+              <div className="font-semibold">{header}</div>
+
+              <div>
+                Orario: {r.shift_info.start_time?.slice(0, 5)} – {r.shift_info.end_time?.slice(0, 5)}
+              </div>
+
+              {r.partial && (
+                <div>
+                  Parte richiesta: {r.partial_start} → {r.partial_end}
+                </div>
+              )}
+
+              <div>
+                Richiesta da: <strong>{r.requester_name}</strong>
+              </div>
+
+              {/* SE È PENDING MOSTRA PULSANTI */}
+              {r.status === "pending" ? (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="bg-green-500 text-white px-3 py-1 rounded text-sm"
+                    onClick={() => respond(r.id, "accepted")}
+                  >
+                    Accetta
+                  </button>
+
+                  <button
+                    className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+                    onClick={() => respond(r.id, "rejected")}
+                  >
+                    Rifiuta
+                  </button>
+                </div>
+              ) : (
+                /* SE NON È PENDING MOSTRA LO STATO */
+                <p className="mt-2 text-sm">
+                  <strong>Stato: </strong>
+                  {r.status === "accepted" && (
+                    <span className="text-green-600">accettata</span>
+                  )}
+                  {r.status === "rejected" && (
+                    <span className="text-red-600">rifiutata</span>
+                  )}
+                  {r.status === "cancelled" && (
+                    <span className="text-red-600">
+                      {getAcceptedByName(r)
+                        ? `già accettata da ${getAcceptedByName(r)}`
+                        : "cancellata"}
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          );
+        })}
+
+      </div>
     </div>
-  </div>
+  </div> 
 );
 
 

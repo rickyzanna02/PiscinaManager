@@ -316,10 +316,21 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
         if not user_id:
             return Response({'error': 'user_id mancante'}, status=400)
+        
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
 
         qs = ReplacementRequest.objects.filter(
             requester_id=user_id
         ).select_related("shift", "target_user")
+
+        if year and month:
+            qs = qs.filter(
+                shift__date__year=year,
+                shift__date__month=month
+            )
+
+        qs = qs.order_by("-shift__date")
 
         ser = ReplacementRequestSerializer(qs, many=True)
         return Response(ser.data, status=200)
@@ -329,40 +340,29 @@ class ShiftViewSet(viewsets.ModelViewSet):
     # ----------------------------------------------------------
     @action(detail=False, methods=['get'])
     def replacements_received(self, request):
-        """
-        Lista delle richieste di sostituzione RICEVUTE da un utente.
-
-        Query string:
-        - user_id (se manca, uso request.user se autenticato)
-        - only_pending=true/false (default: true)
-
-        Regole:
-        - pending: sempre visibili ai destinatari
-        - rejected: visibili SOLO al destinatario che ha rifiutato
-        - accepted: visibili SOLO al destinatario che ha accettato
-        - cancelled: NON visibili ai destinatari (richiesta chiusa perché qualcun altro ha accettato)
-        """
         user_id = request.query_params.get("user_id")
-        if not user_id and request.user and request.user.is_authenticated:
-            user_id = request.user.id
+        only_pending = request.query_params.get("only_pending", "true") == "true"
 
-        if not user_id:
-            return Response({'error': 'user_id mancante'}, status=400)
-
-        only_pending = request.query_params.get("only_pending", "true").lower() == "true"
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
 
         qs = ReplacementRequest.objects.filter(
             target_user_id=user_id
-        ).select_related("shift", "requester")
+        ).select_related("shift")
 
         if only_pending:
-            qs = qs.filter(status='pending')
-        #else:
-            # nello storico il destinatario NON vede le richieste 'cancelled'
-        #   qs = qs.exclude(status='cancelled')
+            qs = qs.filter(status="pending")
+
+        if year and month:
+            qs = qs.filter(
+                shift__date__year=year,
+                shift__date__month=month
+            )
+
+        qs = qs.order_by("-shift__date")
 
         ser = ReplacementRequestSerializer(qs, many=True)
-        return Response(ser.data, status=200)
+        return Response(ser.data)
 
 
     # ----------------------------------------------------------
