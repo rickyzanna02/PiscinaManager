@@ -14,15 +14,6 @@ function formatIT(d) {
   });
 }
 
-// Ruoli possibili (coerenti con Shift.ROLE_CHOICES)
-const ROLE_OPTIONS = [
-  { value: "", label: "Tutti i ruoli" },
-  { value: "bagnino", label: "Bagnino" },
-  { value: "istruttore", label: "Istruttore" },
-  { value: "segreteria", label: "Segreteria" },
-  { value: "pulizia", label: "Pulizia" },
-];
-
 export default function RealCalendar() {
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
@@ -36,6 +27,7 @@ export default function RealCalendar() {
   const [isEditing, setIsEditing] = useState(false);
    // ✅ tipi di corso per eventuale editing
   const [courseTypes, setCourseTypes] = useState([]);
+  const [roles, setRoles] = useState([]);
 
   // ==========================
   // CARICA UTENTI
@@ -47,7 +39,7 @@ export default function RealCalendar() {
       .catch((err) => console.error("Errore caricamento utenti:", err));
   }, []);
 
-  // ✅ carica tipi corso
+  // carica tipi corso
   useEffect(() => {
     api
       .get("/api/courses/types/")
@@ -62,6 +54,13 @@ export default function RealCalendar() {
     const u = users.find((x) => x.id === userField);
     return u ? u.username : `User #${userField}`;
   };
+  // carica ruoli utenti
+  useEffect(() => {
+    api
+      .get("/api/roles/")
+      .then((res) => setRoles(res.data || []))
+      .catch((err) => console.error("Errore caricamento ruoli:", err));
+  }, []);
 
   // ==========================
   // CARICA TUTTI I TURNI REALI
@@ -93,7 +92,7 @@ export default function RealCalendar() {
           const startTime = s.start_time?.slice(0, 5);
           const endTime = s.end_time?.slice(0, 5);
 
-          // ✅ info corso se presente
+          // info corso se presente
           const courseName = s.course_type_data?.name || null;
 
           const baseTitle = courseName
@@ -507,11 +506,15 @@ if (role === "istruttore") {
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
           >
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
+            <option value="">Tutti i ruoli</option>
+
+            {roles
+              .filter((r) => r.code !== "contabilita") // HARDCODE: escludi "contabilita" tra i ruoli selezionabili nel filtro
+              .map((r) => (
+                <option key={r.id} value={r.code}>
+                  {r.label}
+                </option>
+              ))}
           </select>
         </div>
       </div>

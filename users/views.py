@@ -6,6 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from .serializers import UserListSerializer
 from rest_framework.permissions import IsAdminUser
+from rest_framework.generics import ListAPIView
+from .models import UserRole
+from .serializers import UserRoleSerializer
 User = get_user_model()
 
 
@@ -57,3 +60,7 @@ class MeView(generics.GenericAPIView):
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser
         })
+    
+class UserRoleListView(ListAPIView):
+    queryset = UserRole.objects.all()
+    serializer_class = UserRoleSerializer
