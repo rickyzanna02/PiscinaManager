@@ -1,6 +1,6 @@
 # shifts/serializers.py
 from rest_framework import serializers
-from .models import Shift, TemplateShift, PayRate, ReplacementRequest
+from .models import Shift, TemplateShift, ReplacementRequest
 
 
 class ShiftSerializer(serializers.ModelSerializer):
@@ -102,12 +102,6 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
             except CourseType.DoesNotExist:
                 raise serializers.ValidationError({"course": "CourseType non trovato"})
         return data
-
-
-class PayRateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PayRate
-        fields = '__all__'
 
 
 class ReplacementRequestSerializer(serializers.ModelSerializer):

@@ -13,11 +13,10 @@ from django.utils import timezone
 
 from rest_framework import generics
 
-from .models import Shift, TemplateShift, PayRate, ReplacementRequest, PublishedWeek
+from .models import Shift, TemplateShift, ReplacementRequest, PublishedWeek
 from .serializers import (
     ShiftSerializer,
     TemplateShiftSerializer,
-    PayRateSerializer,
     ReplacementRequestSerializer,
 )
 
@@ -721,26 +720,6 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
         serializer = UserListSerializer(users, many=True)
         return Response(serializer.data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ============================================================
-#  TARIFFE ORARIE / PER TURNO
-# ============================================================
-class PayRateViewSet(viewsets.ModelViewSet):
-    queryset = PayRate.objects.all()
-    serializer_class = PayRateSerializer
-    permission_classes = [permissions.AllowAny]
 
 
 # ============================================================

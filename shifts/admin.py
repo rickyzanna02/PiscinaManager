@@ -3,7 +3,6 @@ from django.utils import timezone
 
 from .models import (
     Shift,
-    PayRate,
     TemplateShift,
     PublishedWeek,
     ReplacementRequest
@@ -27,16 +26,6 @@ class ShiftAdmin(admin.ModelAdmin):
         'approved'
     )
     list_filter = ('role', 'date', 'user', 'course_type')
-    search_fields = ('user__username',)
-
-
-# ==============================
-# PAY RATE
-# ==============================
-@admin.register(PayRate)
-class PayRateAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'pay_type', 'amount')
-    list_filter = ('role', 'pay_type')
     search_fields = ('user__username',)
 
 

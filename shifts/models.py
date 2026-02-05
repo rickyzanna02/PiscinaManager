@@ -2,32 +2,6 @@ from django.db import models
 from django.conf import settings
 
 
-class PayRate(models.Model):
-    PAY_TYPE_CHOICES = [
-        ('hour', 'Per ora'),
-        ('shift', 'Per turno'),
-    ]
-
-    ROLE_CHOICES = [
-        ('bagnino', 'Bagnino'),
-        ('istruttore', 'Istruttore'),
-        ('segreteria', 'Segreteria'),
-        ('pulizia', 'Pulizia'),
-    ]
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    pay_type = models.CharField(max_length=10, choices=PAY_TYPE_CHOICES, default='hour')
-    amount = models.DecimalField(max_digits=6, decimal_places=2)
-
-    class Meta:
-        unique_together = ('user', 'role')
-
-    def __str__(self):
-        tipo = "€/h" if self.pay_type == 'hour' else "€/turno"
-        return f"{self.user.username} - {self.role} ({self.amount} {tipo})"
-
-
 class Shift(models.Model):
     ROLE_CHOICES = [
         ('bagnino', 'Bagnino'),
@@ -58,15 +32,7 @@ class Shift(models.Model):
         end_dt = datetime.combine(self.date, self.end_time)
         return (end_dt - start_dt).total_seconds() / 3600
 
-    def calculate_payment(self):
-        from .models import PayRate
-        try:
-            rate = PayRate.objects.get(user=self.user, role=self.role)
-        except PayRate.DoesNotExist:
-            return 0
-        if rate.pay_type == 'hour':
-            return rate.amount * self.total_hours()
-        return rate.amount
+    
 
     def __str__(self):
         return f"{self.user.username} - {self.role} ({self.date})"

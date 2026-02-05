@@ -4,8 +4,7 @@ from django.urls import path
 from .views import (
     ShiftViewSet,
     TemplateShiftViewSet,
-    PayRateViewSet,
-    notify_replacement,           # ✅ import
+    notify_replacement,
 )
 
 from courses.views import CourseTypeViewSet
@@ -13,7 +12,7 @@ from courses.views import CourseTypeViewSet
 router = DefaultRouter()
 router.register(r'shifts', ShiftViewSet, basename='shifts')
 router.register(r'templates', TemplateShiftViewSet, basename='templates')
-router.register(r'payrates', PayRateViewSet, basename='payrates')
+
 
 
 urlpatterns = [
