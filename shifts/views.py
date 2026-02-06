@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 User = get_user_model()
 from users.serializers import UserListSerializer
 from django.utils import timezone
+from users.models import UserRole
 
 
 
@@ -92,6 +93,12 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
         if not category:
             return Response({"error": "category mancante"}, status=400)
+        
+        # ✅ Ottieni il UserRole dal code
+        try:
+            role = UserRole.objects.get(code=category)
+        except UserRole.DoesNotExist:
+            return Response({"error": f"Ruolo '{category}' non trovato"}, status=400)
 
         if not isinstance(weeks, list) or not weeks:
             return Response({"error": "Lista 'weeks' mancante o vuota"},
@@ -121,8 +128,9 @@ class ShiftViewSet(viewsets.ModelViewSet):
             debug_log.append(f"Settimana normalizzata: {start_date} → {end_date}")
 
             # Registra settimana come pubblicata
+            # ✅ Usa role invece di category
             PublishedWeek.objects.get_or_create(
-                category=category,
+                role=role,
                 start_date=start_date
             )
 
@@ -682,23 +690,33 @@ class ShiftViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def published_weeks(self, request):
-        year = int(request.query_params.get("year"))
-        month = int(request.query_params.get("month"))
+        """
+        GET /api/shifts/published_weeks/?year=2024&month=1&category=bagnino
+        Restituisce le start_date delle settimane pubblicate per quella categoria/mese
+        """
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
         category = request.query_params.get("category")
 
         if not category:
             return Response({"error": "category richiesta"}, status=400)
 
-        first = date(year, month, 1)
+        # ✅ Converti year e month in interi
+        try:
+            year = int(year)
+            month = int(month)
+        except (TypeError, ValueError):
+            return Response({"error": "year e month devono essere numeri"}, status=400)
+
+        first = date(year, month, 1)  # ✅ Ora funziona!
         last = date(year, month, monthrange(year, month)[1])
 
-        # Estendi un po’ per includere settimane a cavallo mese
         search_start = first - timedelta(days=7)
         search_end = last + timedelta(days=7)
 
-        # Leggiamo SOLO da PublishedWeek
+        # ✅ MODIFICATO: Usa role__code invece di category
         weeks = PublishedWeek.objects.filter(
-            category=category,
+            role__code=category,  # ✅ Cambiato
             start_date__range=[search_start, search_end]
         ).values_list("start_date", flat=True)
 

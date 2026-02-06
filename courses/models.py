@@ -6,11 +6,31 @@ from django.conf import settings
 # 1️⃣ Tariffe base per le categorie
 # ================================
 class CategoryBaseRate(models.Model):
-    category = models.CharField(max_length=50, unique=True)
-    base_rate = models.DecimalField(max_digits=6, decimal_places=2)
+    """
+    Tariffa oraria base per ogni ruolo/categoria.
+    
+    REFACTOR: ora usa ForeignKey a UserRole invece di CharField hardcoded.
+    Questo garantisce coerenza con la tabella UserRole e permette di gestire
+    i ruoli centralmente.
+    """
+    role = models.OneToOneField(
+        'users.UserRole',
+        on_delete=models.CASCADE,
+        related_name='base_rate',
+        verbose_name='Ruolo'
+    )
+    base_rate = models.DecimalField(
+        max_digits=6, 
+        decimal_places=2,
+        verbose_name='Tariffa base (€/h)'
+    )
+
+    class Meta:
+        verbose_name = 'Tariffa base per categoria'
+        verbose_name_plural = 'Tariffe base per categoria'
 
     def __str__(self):
-        return f"{self.category}: {self.base_rate} €/h"
+        return f"{self.role.label}: {self.base_rate} €/h"
 
 
 # ====================================
@@ -46,7 +66,7 @@ class CourseType(models.Model):
 
 
 # ==================================================
-# 4️⃣ Tariffa personalizzata dell’istruttore per corso
+# 4️⃣ Tariffa personalizzata dell'istruttore per corso
 # ==================================================
 class InstructorCourseRate(models.Model):
     instructor = models.ForeignKey(
@@ -66,4 +86,3 @@ class InstructorCourseRate(models.Model):
 
     def __str__(self):
         return f"{self.instructor.username} – {self.course_type.name}: {self.rate} €"
-

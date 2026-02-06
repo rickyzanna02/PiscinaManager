@@ -9,9 +9,10 @@ from .models import (
 
 @admin.register(CategoryBaseRate)
 class CategoryBaseRateAdmin(admin.ModelAdmin):
-    list_display = ("category", "base_rate")
-    search_fields = ("category",)
-    ordering = ("category",)
+    list_display = ("role", "base_rate")
+    search_fields = ("role__code", "role__label")
+    ordering = ("role__code",)
+    autocomplete_fields = ("role",)
 
 
 @admin.register(UserHourlyRate)

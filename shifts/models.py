@@ -112,12 +112,32 @@ class ReplacementRequest(models.Model):
 
 
 class PublishedWeek(models.Model):
-    category = models.CharField(max_length=50)
-    start_date = models.DateField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    """
+    Traccia quali settimane sono state pubblicate per ogni categoria/ruolo.
+    
+    REFACTOR: ora usa ForeignKey a UserRole invece di CharField hardcoded.
+    Questo garantisce coerenza con la tabella UserRole e impedisce errori
+    di battitura o inconsistenze nei nomi delle categorie.
+    """
+    role = models.ForeignKey(
+        'users.UserRole',
+        on_delete=models.CASCADE,
+        related_name='published_weeks',
+        verbose_name='Ruolo/Categoria'
+    )
+    start_date = models.DateField(
+        verbose_name='Data inizio settimana'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Data pubblicazione'
+    )
 
     class Meta:
-        unique_together = ("category", "start_date")
+        unique_together = ("role", "start_date")
+        verbose_name = 'Settimana pubblicata'
+        verbose_name_plural = 'Settimane pubblicate'
+        ordering = ['-start_date', 'role']
 
     def __str__(self):
-        return f"{self.category} - {self.start_date}"
+        return f"{self.role.label} - {self.start_date}"

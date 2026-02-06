@@ -22,7 +22,7 @@ class ShiftAdmin(admin.ModelAdmin):
         'date',
         'start_time',
         'end_time',
-        'course_type',      # 🔥 AGGIUNTO
+        'course_type',
         'approved'
     )
     list_filter = ('role', 'date', 'user', 'course_type')
@@ -35,14 +35,14 @@ class ShiftAdmin(admin.ModelAdmin):
 @admin.register(TemplateShift)
 class TemplateShiftAdmin(admin.ModelAdmin):
     list_display = (
-        'category',
+        'category',  # ⚠️ RIMANE 'category' per ora (Fase 2)
         'weekday',
         'start_time',
         'end_time',
         'user',
-        'course_type',  # 🔥 AGGIUNTO
+        'course_type',
     )
-    list_filter = ('category', 'weekday', 'course_type')
+    list_filter = ('category', 'weekday', 'course_type')  # ⚠️ RIMANE 'category' per ora (Fase 2)
     search_fields = ('user__username',)
     
     actions = ["genera_turni_mese_corrente"]
@@ -63,8 +63,8 @@ class TemplateShiftAdmin(admin.ModelAdmin):
 # ==============================
 @admin.register(PublishedWeek)
 class PublishedWeekAdmin(admin.ModelAdmin):
-    list_display = ("category", "start_date", "created_at")
-    list_filter = ("category", "start_date")
+    list_display = ("role", "start_date", "created_at")  # ✅ AGGIORNATO a 'role'
+    list_filter = ("role", "start_date")  # ✅ AGGIORNATO a 'role'
     ordering = ("-start_date",)
 
 

@@ -8,7 +8,7 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ("username", "first_name", "last_name")
     filter_horizontal = ("roles",)
 
-
 @admin.register(UserRole)
 class UserRoleAdmin(admin.ModelAdmin):
     list_display = ("code", "label")
+    search_fields = ("code", "label")
