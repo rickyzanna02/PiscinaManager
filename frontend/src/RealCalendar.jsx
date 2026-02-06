@@ -15,6 +15,18 @@ function formatIT(d) {
 }
 
 export default function RealCalendar() {
+  const [roles, setRoles] = useState([]);  // Carica da API
+  const [category, setCategory] = useState("");
+
+  useEffect(() => {
+    fetch("/api/users/roles/")
+      .then(res => res.json())
+      .then(data => {
+        setRoles(data);
+        setCategory(data[0]?.code || "");
+      });
+  }, []);
+  const instructorRole = roles.find(r => r.code === "istruttore");
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [calendarKey, setCalendarKey] = useState(0);
@@ -27,7 +39,7 @@ export default function RealCalendar() {
   const [isEditing, setIsEditing] = useState(false);
    // ✅ tipi di corso per eventuale editing
   const [courseTypes, setCourseTypes] = useState([]);
-  const [roles, setRoles] = useState([]);
+ 
 
   // ==========================
   // CARICA UTENTI
@@ -96,8 +108,8 @@ export default function RealCalendar() {
           const courseName = s.course_type_data?.name || null;
 
           const baseTitle = courseName
-            ? `${userUsername} – ${s.role} – ${courseName}`
-            : `${userUsername} – ${s.role}`;
+            ? `${userUsername} – ${s.role.code} – ${courseName}`
+            : `${userUsername} – ${s.role.code}`;
 
           let color = "#4ade80";
           let borderColor = "#16a34a";
@@ -199,7 +211,7 @@ export default function RealCalendar() {
 
     let label = "";
 
-if (role === "istruttore") {
+if (role === instructorRole?.code) {
   label = courseName
     ? `${titleUser} – ${courseName}`
     : `${titleUser}`;
@@ -300,7 +312,7 @@ if (role === "istruttore") {
                 <strong>Ruolo:</strong> {selectedEvent.role}
               </p>
 
-              {selectedEvent.role === "istruttore" && (
+              {selectedEvent.role === instructorRole?.code && (
               <p className="text-sm mb-3">
                 <strong>Tipo corso:</strong>{" "}
                 {selectedEvent.course_name || "—"}

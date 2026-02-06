@@ -141,7 +141,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
             )
 
             existing_map = {
-                (s.date, s.user_id, s.role): s
+                (s.date, s.user_id, s.role.code): s
                 for s in existing_shifts
             }
 
@@ -639,7 +639,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
             data.append({
                 "id": s.id,
                 "date": str(s.date),
-                "role": s.role,
+                "role": s.role.code,
                 "start_time": s.start_time.strftime("%H:%M"),
                 "end_time": s.end_time.strftime("%H:%M"),
                 "user_id": s.user.id if s.user else None,
@@ -677,7 +677,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
             {
                 "id": s.id,
                 "title": s.user.username if s.user else "—",
-                "role": s.role,
+                "role": s.role.code,
                 "date": str(s.date),
                 "start_time": s.start_time.strftime("%H:%M"),
                 "end_time": s.end_time.strftime("%H:%M"),

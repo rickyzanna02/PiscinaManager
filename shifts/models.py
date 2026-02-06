@@ -3,15 +3,13 @@ from django.conf import settings
 
 
 class Shift(models.Model):
-    ROLE_CHOICES = [
-        ('bagnino', 'Bagnino'),
-        ('istruttore', 'Istruttore'),
-        ('segreteria', 'Segreteria'),
-        ('pulizia', 'Pulizia'),
-    ]
+    role = models.ForeignKey(
+        'users.UserRole',
+        on_delete=models.CASCADE,
+        related_name='shifts'
+    )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -39,14 +37,11 @@ class Shift(models.Model):
 
 
 class TemplateShift(models.Model):
-    CATEGORY_CHOICES = [
-        ('bagnino', 'Bagnino'),
-        ('istruttore', 'Istruttore'),
-        ('segreteria', 'Segreteria'),
-        ('pulizia', 'Pulizia'),
-    ]
-
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    role = models.ForeignKey(
+        'users.UserRole',
+        on_delete=models.CASCADE,
+        related_name='template_shifts'
+    )
     weekday = models.IntegerField(choices=[
         (i, d) for i, d in enumerate(
             ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]

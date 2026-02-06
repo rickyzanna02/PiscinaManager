@@ -14,6 +14,18 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.decorators import api_view
+
+@api_view(['GET'])
+def list_roles(request):
+    """
+    GET /api/users/roles/
+    Restituisce tutti i ruoli disponibili
+    """
+    roles = UserRole.objects.all().order_by('code')
+    serializer = UserRoleSerializer(roles, many=True)
+    return Response(serializer.data)
+
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]

@@ -29,7 +29,8 @@ function mergeContiguousShifts(shiftsOfDay) {
     if (a.end_time !== b.start_time) return false;
 
     // caso istruttore: stesso tipo di corso
-    if (a.role === "istruttore") {
+    const instructorCode = roles.find(r => r.code === "istruttore")?.code;
+    if (a.role === instructorCode) {
       const aCourseId =
         a.course_type_data?.id ??
         a.course_type ??
@@ -94,14 +95,11 @@ function diffHours(start_time, end_time) {
 }
 
 function computeMonthlyTotals(shifts) {
-  const roles = ["bagnino", "segreteria", "pulizia"];
-
-  // ore per ruolo non istruttore
-  const hoursByRole = {
-    bagnino: 0,
-    segreteria: 0,
-    pulizia: 0,
-  };
+  const nonInstructorRoles = roles.filter(r => r.code !== "istruttore");
+  const hoursByRole = nonInstructorRoles.reduce((acc, role) => {
+    acc[role.code] = 0;
+    return acc;
+  }, { corsi: {} });
 
   // istruttori: alcuni corsi a ORE, altri a TURNI
   const INSTRUCTOR_COURSES_COUNT_AS_HOURS = new Set(["propaganda", "agonismo"]);
@@ -110,12 +108,12 @@ function computeMonthlyTotals(shifts) {
   const instructorHoursByCourse = {}; // ore (propaganda/agonismo)
 
   shifts.forEach((s) => {
-    if (roles.includes(s.role)) {
-      hoursByRole[s.role] += diffHours(s.start_time, s.end_time);
+    if (roles.includes(s.role.code)) {
+      hoursByRole[s.role.code] += diffHours(s.start_time, s.end_time);
       return;
     }
 
-    if (s.role === "istruttore") {
+    if (s.role.code === "istruttore") {
       const courseName =
         (s.course_type_data?.name || s.course?.name || "Altro").toLowerCase();
 
@@ -250,7 +248,9 @@ export default function ContabilitaDettaglio() {
   // costruisce righe di breakdown e totale
   const computeMonthlyPayBreakdown = (shifts) => {
     const HOURLY_INSTRUCTOR_COURSES = new Set(["propaganda", "agonismo"]);
-    const roleHourly = ["bagnino", "segreteria", "pulizia"];
+    const nonInstructorCodes = roles
+      .filter(r => r.code !== "istruttore")
+      .map(r => r.code);
 
     // aggregazioni
     const hoursByRole = {};
@@ -258,12 +258,12 @@ export default function ContabilitaDettaglio() {
     const instructorHoursByCourse = {};
 
     for (const s of shifts) {
-      if (roleHourly.includes(s.role)) {
-        hoursByRole[s.role] = (hoursByRole[s.role] || 0) + diffHours(s.start_time, s.end_time);
+      if (roleHourly.includes(s.role.code)) {
+        hoursByRole[s.role.code] = (hoursByRole[s.role.code] || 0) + diffHours(s.start_time, s.end_time);
         continue;
       }
 
-      if (s.role === "istruttore") {
+      if (s.role.code === "istruttore") {
         const courseNameRaw = (s.course_type_data?.name || s.course?.name || "Altro").toLowerCase();
         const courseTypeId = s.course_type_data?.id ?? s.course_type ?? null;
 
@@ -333,7 +333,7 @@ export default function ContabilitaDettaglio() {
       // qui usiamo una lookup sul primo shift di quel corso per recuperare l'id
       const sample = shifts.find(
         (s) =>
-          s.role === "istruttore" &&
+          s.role.code === "istruttore" &&
           (s.course_type_data?.name || s.course?.name || "").toLowerCase() === courseName
       );
       const courseTypeId = sample?.course_type_data?.id ?? sample?.course_type ?? null;
@@ -377,13 +377,13 @@ export default function ContabilitaDettaglio() {
     let total = 0;
 
     for (const s of shifts) {
-      if (["bagnino", "segreteria", "pulizia"].includes(s.role)) {
+      if (nonInstructorCodes.includes(s.role.code)) {
         const hours = diffHours(s.start_time, s.end_time);
-        total += hours * getHourlyRateForRole(s.role);
+        total += hours * getHourlyRateForRole(s.role.code);
         continue;
       }
 
-      if (s.role === "istruttore") {
+      if (s.role.code === "istruttore") {
         const courseTypeId = s.course_type_data?.id ?? s.course_type ?? null;
         const courseName = (s.course_type_data?.name || s.course?.name || "").toLowerCase();
         const rate = getInstructorRateForCourseTypeId(courseTypeId);
@@ -452,7 +452,7 @@ export default function ContabilitaDettaglio() {
                   let extraLabel = null;
 
                   // ---------- ISTRUTTORI: numero corsi + nome corso ----------
-                  if (s.role === "istruttore") {
+                  if (s.role.code === "istruttore") {
                     const courseCount = s._is_merged ? s.merged_count : 1;
                     const label = courseCount === 1 ? "corso" : "corsi";
 
@@ -468,7 +468,7 @@ export default function ContabilitaDettaglio() {
                   }
 
                   // ---------- ALTRI RUOLI: numero di ore ----------
-                  if (["bagnino", "segreteria", "pulizia"].includes(s.role)) {
+                  if (nonInstructorCodes.includes(s.role.code)) {
                     const hours = diffHours(s.start_time, s.end_time);
                     const label = hours === 1 ? "ora" : "ore";
                     extraLabel = `(${formatHours(hours)} ${label})`;
@@ -478,7 +478,7 @@ export default function ContabilitaDettaglio() {
                     <div key={s.id || s.start_time} className="cd-shift">
                       <div className="cd-shift-left">
                         <span className="cd-bullet">▸</span>
-                        <span className="cd-role">{s.role}</span>
+                        <span className="cd-role">{s.role.code}</span>
                         <span className="cd-time">
                           {start}–{end}
                         </span>
@@ -504,12 +504,13 @@ export default function ContabilitaDettaglio() {
           <div className="cd-card-body">
             {/* Bagnino / Segreteria / Pulizia → totale ore */}
             <div className="cd-totals">
-              {hoursByRole.bagnino > 0 && (
-                <p>
-                  <strong>Bagnino:</strong> {formatHours(hoursByRole.bagnino)}{" "}
-                  {hoursByRole.bagnino === 1 ? "ora" : "ore"}
-                </p>
-              )}
+              {nonInstructorRoles.map(role => (
+              hoursByRole[role.code] > 0 && (
+                <li key={role.code}>
+                  <strong>{role.label}:</strong> {formatHours(hoursByRole[role.code])}
+                </li>
+              )
+            ))}
 
               {hoursByRole.segreteria > 0 && (
                 <p>

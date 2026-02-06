@@ -6,7 +6,19 @@ import api from "./api";
 import itLocale from "@fullcalendar/core/locales/it";
 
 export default function App() {
-  const [category, setCategory] = useState("bagnino");
+  const [roles, setRoles] = useState([]);  // Carica da API
+  const [category, setCategory] = useState("");
+
+  useEffect(() => {
+    fetch("/api/users/roles/")
+      .then(res => res.json())
+      .then(data => {
+        setRoles(data);
+        setCategory(data[0]?.code || "");
+      });
+  }, []);
+
+  
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [calendarKey, setCalendarKey] = useState(0);
@@ -14,6 +26,7 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [courseTypes, setCourseTypes] = useState([]);
+  const instructorRole = roles.find(r => r.code === "istruttore");
 
   // Popup "Inserisci corso" (istruttore)
   const [showCourseModal, setShowCourseModal] = useState(false);
@@ -375,7 +388,7 @@ export default function App() {
     }
 
     const payload = {
-      category: "istruttore",
+      category: instructorRole.code,
       user,
       weekday,
       start_time,
@@ -437,18 +450,15 @@ export default function App() {
 
       {/* Selezione categoria e azioni */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <select
-          className="border p-2 rounded"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="bagnino">Bagnini</option>
-          <option value="istruttore">Istruttori</option>
-          <option value="segreteria">Segreteria</option>
-          <option value="pulizia">Pulizie</option>
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {roles.map(role => (
+            <option key={role.code} value={role.code}>
+              {role.label}
+            </option>
+          ))}
         </select>
 
-        {category === "istruttore" && (
+        {category === instructorRole?.code && (
           <>
             <button
               onClick={openCourseModal}
@@ -590,7 +600,7 @@ export default function App() {
       {selectedSlot && (
         <div id="popup-overlay">
           <div className="popup">
-            {category === "istruttore" ? (
+            {category === instructorRole?.code ? (
               <>
                 <h2 className="text-lg font-bold mb-3">Inserisci corso</h2>
 
@@ -686,7 +696,7 @@ export default function App() {
                       }
 
                       const payload = {
-                        category: "istruttore",
+                        category: instructorRole.code,
                         user: userId,
                         weekday,
                         start_time: start,
@@ -789,7 +799,7 @@ export default function App() {
                   </p>
 
                    {/* Se ruolo = istruttore → mostra tipo corso */}
-                    {category === "istruttore" && selectedEvent.courseName && (
+                    {category === instructorRole?.code && selectedEvent.courseName && (
                       <p>
                         <strong>Tipo corso:</strong> {selectedEvent.courseName}
                       </p>
@@ -831,7 +841,7 @@ export default function App() {
       )}
 
       {/* Popup "Inserisci corso" (bottone) */}
-      {showCourseModal && category === "istruttore" && (
+      {showCourseModal && category === instructorRole?.code && (
         <div id="popup-overlay">
           <div className="popup">
             <h2 className="text-lg font-bold mb-3">Inserisci corso</h2>
@@ -1084,7 +1094,7 @@ export default function App() {
                     const end = addMinutes(start, minutes);
 
                     await api.post("/api/templates/", {
-                      category: "istruttore",
+                      category: instructorRole.code,
                       user: quickForm.user,
                       weekday,
                       start_time: start,

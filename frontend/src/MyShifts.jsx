@@ -67,7 +67,7 @@ export default function MyShifts() {
           let clickable = true;
 
           // ✅ base: corso se c'è, altrimenti ruolo
-          let title = s.course_type_data?.name || s.role;
+          let title = s.course_type_data?.name || s.role.code;
 
           if (s.replacement_info?.accepted) {
             if (s.replacement_info.requester_id === userId) {
