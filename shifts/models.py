@@ -3,18 +3,19 @@ from django.conf import settings
 
 
 class Shift(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    
+    # ✅ CAMBIATO: da CharField a FK
     role = models.ForeignKey(
         'users.UserRole',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='shifts'
     )
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
 
-    # 🔥 NUOVO: riferimento al tipo di corso
     course_type = models.ForeignKey(
         'courses.CourseType',
         on_delete=models.SET_NULL,
@@ -30,18 +31,18 @@ class Shift(models.Model):
         end_dt = datetime.combine(self.date, self.end_time)
         return (end_dt - start_dt).total_seconds() / 3600
 
-    
-
     def __str__(self):
-        return f"{self.user.username} - {self.role} ({self.date})"
+        return f"{self.user.username} - {self.role.label} ({self.date})"
 
 
 class TemplateShift(models.Model):
-    role = models.ForeignKey(
+    # ✅ CAMBIATO: da CharField a FK
+    category = models.ForeignKey(
         'users.UserRole',
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='template_shifts'
     )
+    
     weekday = models.IntegerField(choices=[
         (i, d) for i, d in enumerate(
             ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
@@ -51,7 +52,6 @@ class TemplateShift(models.Model):
     end_time = models.TimeField()
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
 
-    # 🔥 anche nei template → CourseType
     course_type = models.ForeignKey(
         'courses.CourseType',
         on_delete=models.SET_NULL,
@@ -60,8 +60,8 @@ class TemplateShift(models.Model):
     )
 
     def __str__(self):
-        return f"{self.category} - {self.get_weekday_display()} {self.start_time}-{self.end_time}"
-
+        return f"{self.category.label} - {self.get_weekday_display()} {self.start_time}-{self.end_time}"
+    
 
 class ReplacementRequest(models.Model):
     STATUS_CHOICES = [

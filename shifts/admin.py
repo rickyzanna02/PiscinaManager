@@ -35,14 +35,14 @@ class ShiftAdmin(admin.ModelAdmin):
 @admin.register(TemplateShift)
 class TemplateShiftAdmin(admin.ModelAdmin):
     list_display = (
-        'category',  # ⚠️ RIMANE 'category' per ora (Fase 2)
+        'category',  # ✅ AGGIORNATO da 'category' a 'role'
         'weekday',
         'start_time',
         'end_time',
         'user',
         'course_type',
     )
-    list_filter = ('category', 'weekday', 'course_type')  # ⚠️ RIMANE 'category' per ora (Fase 2)
+    list_filter = ('category', 'weekday', 'course_type')  # ✅ AGGIORNATO da 'category' a 'role'
     search_fields = ('user__username',)
     
     actions = ["genera_turni_mese_corrente"]

@@ -75,7 +75,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 # evita duplicati se già generato
                 shift, created = Shift.objects.get_or_create(
                     user=template.user,
-                    role=template.category,  # NB: qui usi direttamente la stringa category
+                    role=template.role,  # ✅ Ora 'role' è FK in TemplateShift
                     date=current_date,
                     start_time=template.start_time,
                     end_time=template.end_time,
@@ -137,7 +137,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
             # Turni esistenti della settimana
             existing_shifts = Shift.objects.filter(
                 date__range=[start_date, end_date],
-                role=category
+                role=role  # ✅ Usa l'oggetto UserRole già recuperato
             )
 
             existing_map = {
@@ -154,14 +154,14 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
                 templates = TemplateShift.objects.filter(
                     weekday=weekday,
-                    category=category
+                    role=role  # ✅ Usa FK UserRole invece di stringa
                 )
 
                 for template in templates:
                     if not template.user:
                         continue
 
-                    key = (current_date, template.user_id, template.category)
+                    key = (current_date, template.user_id, template.role.code)  # ✅ Usa .code dalla FK
                     template_keys.add(key)
 
                     if key in existing_map:
@@ -184,7 +184,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                     else:
                         Shift.objects.create(
                             user=template.user,
-                            role=template.category,
+                            role=template.role,  # ✅ Ora è FK, non stringa
                             date=current_date,
                             start_time=template.start_time,
                             end_time=template.end_time,
@@ -728,11 +728,11 @@ class ShiftViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], permission_classes=[IsAuthenticated])
     def available_collaborators(self, request, pk=None):
         shift = self.get_object()
-        role = shift.role
+        role_code = shift.role.code  # ✅ Estrai il code dalla FK
 
         users = (
             User.objects
-            .filter(roles__code=role)
+            .filter(roles__code=role_code)  # ✅ Ora passa la stringa code
             .exclude(id=shift.user_id)
         )
 
@@ -750,9 +750,9 @@ class TemplateShiftViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        category = self.request.query_params.get('category')
-        if category:
-            qs = qs.filter(category=category)
+        category_code = self.request.query_params.get('category')
+        if category_code:
+            qs = qs.filter(role__code=category_code)  # ✅ Usa lookup FK
         return qs.order_by('weekday', 'start_time')
 
 

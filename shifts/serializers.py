@@ -6,6 +6,15 @@ from .models import Shift, TemplateShift, ReplacementRequest
 class ShiftSerializer(serializers.ModelSerializer):
     replacement_info = serializers.SerializerMethodField()
 
+    # ✅ NUOVO: Gestione role come FK
+    role_data = serializers.SerializerMethodField(read_only=True)
+    role_id = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('users.models', fromlist=['UserRole']).UserRole.objects.all(),
+        source='role',
+        write_only=True,
+        required=False
+    )
+
     # input compatibile col frontend (id corso)
     course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
@@ -15,6 +24,16 @@ class ShiftSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shift
         fields = "__all__"
+    
+    def get_role_data(self, obj):
+        """Restituisce dati completi del ruolo"""
+        if not obj.role:
+            return None
+        return {
+            "id": obj.role.id,
+            "code": obj.role.code,
+            "label": obj.role.label,
+        }
 
     def validate(self, data):
         course_id = data.pop("course", None)
@@ -64,6 +83,15 @@ class ShiftSerializer(serializers.ModelSerializer):
 
 
 class TemplateShiftSerializer(serializers.ModelSerializer):
+    # ✅ NUOVO: Gestione role come FK (era category)
+    role_data = serializers.SerializerMethodField(read_only=True)
+    role_id = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('users.models', fromlist=['UserRole']).UserRole.objects.all(),
+        source='role',
+        write_only=True,
+        required=False
+    )
+
     # il frontend manda "course" = id del corso
     course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
@@ -74,7 +102,9 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
         model = TemplateShift
         fields = [
             "id",
-            "category",
+            "role",             # ✅ FK oggetto (read-only per output)
+            "role_id",          # ✅ Per input (write)
+            "role_data",        # ✅ Dati completi ruolo
             "weekday",
             "start_time",
             "end_time",
@@ -83,6 +113,16 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
             "course",           # input dal frontend
             "course_type_data", # output ricco
         ]
+    
+    def get_role_data(self, obj):
+        """Restituisce dati completi del ruolo"""
+        if not obj.role:
+            return None
+        return {
+            "id": obj.role.id,
+            "code": obj.role.code,
+            "label": obj.role.label,
+        }
 
     def get_course_type_data(self, obj):
         if not obj.course_type:
