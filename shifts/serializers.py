@@ -84,39 +84,39 @@ class ShiftSerializer(serializers.ModelSerializer):
 
 
 class TemplateShiftSerializer(serializers.ModelSerializer):
-    # ✅ CORRETTO: source='category' perché il campo nel model è 'category'
-    category_data = serializers.SerializerMethodField(read_only=True)
+    # ⛔ blocca input diretto su category
+    category = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    # ✅ unico campo ammesso in input
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=UserRole.objects.all(),
-        source='category',  # ✅ IMPORTANTE: campo nel model è 'category'
+        source="category",
         write_only=True,
-        required=False
+        required=True
     )
 
-    # il frontend manda "course" = id del corso
-    course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    category_data = serializers.SerializerMethodField(read_only=True)
 
-    # e restituiamo i dati del course_type
+    course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     course_type_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = TemplateShift
         fields = [
             "id",
-            "category",         # ✅ FK oggetto (read-only per output)
-            "category_id",      # ✅ Per input (write)
-            "category_data",    # ✅ Dati completi ruolo
+            "category",
+            "category_id",
+            "category_data",
             "weekday",
             "start_time",
             "end_time",
             "user",
-            "course_type",      # id FK
-            "course",           # input dal frontend
-            "course_type_data", # output ricco
+            "course_type",
+            "course",
+            "course_type_data",
         ]
-    
+
     def get_category_data(self, obj):
-        """Restituisce dati completi del ruolo/categoria"""
         if not obj.category:
             return None
         return {
@@ -143,6 +143,7 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
             except CourseType.DoesNotExist:
                 raise serializers.ValidationError({"course": "CourseType non trovato"})
         return data
+
 
 
 class ReplacementRequestSerializer(serializers.ModelSerializer):

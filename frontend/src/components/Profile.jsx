@@ -36,7 +36,7 @@ export default function Profile() {
   // LOAD PROFILO
   // =====================================================
   useEffect(() => {
-    api.get("/api/auth/me/")
+    api.get("/auth/me/")
       .then((res) => {
         setProfile({
           username: res.data.username,
@@ -55,7 +55,7 @@ export default function Profile() {
     setProfileMsg(null);
 
     try {
-      await api.put("/api/auth/me/", {
+      await api.put("/auth/me/", {
         first_name: profile.first_name,
         last_name: profile.last_name,
         date_of_birth: profile.date_of_birth || null,
@@ -83,7 +83,7 @@ export default function Profile() {
     setSavingPassword(true);
 
     try {
-      await api.post("/api/auth/change-password/", {
+      await api.post("/auth/change-password/", {
         old_password: passwords.old,
         new_password: passwords.new1,
       });

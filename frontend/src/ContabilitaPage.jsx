@@ -13,7 +13,8 @@ export default function ContabilitaPage() {
   const toggleChecked = async (userId) => {
     try {
       const res = await api.post(
-        `/api/auth/contabilita/checks/${userId}/`
+        `/contabilita/checks/${userId}/`,
+        { checked: !checkedUsers[userId] }
       );
 
       setCheckedUsers(prev => ({
@@ -26,9 +27,10 @@ export default function ContabilitaPage() {
   };
 
 
+
   useEffect(() => {
     api
-      .get("/api/users/", { params: { only_collaborators: true } })
+      .get("/users/", { params: { only_collaborators: true } })
       .then((res) => {
         const sorted = [...res.data].sort((a, b) =>
           a.username.localeCompare(b.username)
@@ -42,7 +44,7 @@ export default function ContabilitaPage() {
         setLoading(false);
       });
 
-      api.get("/api/auth/contabilita/checks/")
+      api.get("/contabilita/checks/")
         .then(res => {
         const map = {};
         res.data.forEach(c => {

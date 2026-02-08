@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "./api";
-
 import "./ContabilitaDettaglio.css";
-
 
 
 // =======================================
 // MERGE TURNI CONTIGUI PER VISUALIZZAZIONE
 // =======================================
-function mergeContiguousShifts(shiftsOfDay) {
+function mergeContiguousShifts(shiftsOfDay,instructorCode) {
   if (!shiftsOfDay || shiftsOfDay.length === 0) return [];
 
   // ordina per orario
@@ -23,14 +21,14 @@ function mergeContiguousShifts(shiftsOfDay) {
   // funzione per sapere se due turni sono fondibili
   const areContiguous = (a, b) => {
     // devono essere stesso ruolo
-    if (a.role !== b.role) return false;
+    if (a.role_data?.code !== b.role_data?.code) return false;  // ✅ Confronta i codici
 
     // devono essere contigui come orario
     if (a.end_time !== b.start_time) return false;
 
     // caso istruttore: stesso tipo di corso
-    const instructorCode = roles.find(r => r.code === "istruttore")?.code;
-    if (a.role === instructorCode) {
+    
+    if (a.role_data?.code === instructorCode) {
       const aCourseId =
         a.course_type_data?.id ??
         a.course_type ??
@@ -94,8 +92,9 @@ function diffHours(start_time, end_time) {
   return minutes / 60;
 }
 
-function computeMonthlyTotals(shifts) {
+function computeMonthlyTotals(shifts, roles) {
   const nonInstructorRoles = roles.filter(r => r.code !== "istruttore");
+  const nonInstructorCodes = nonInstructorRoles.map(r => r.code);  // ← AGGIUNGI QUESTA RIGA
   const hoursByRole = nonInstructorRoles.reduce((acc, role) => {
     acc[role.code] = 0;
     return acc;
@@ -107,13 +106,15 @@ function computeMonthlyTotals(shifts) {
   const instructorByCourse = {}; // turni (default)
   const instructorHoursByCourse = {}; // ore (propaganda/agonismo)
 
+  
+
   shifts.forEach((s) => {
-    if (roles.includes(s.role.code)) {
-      hoursByRole[s.role.code] += diffHours(s.start_time, s.end_time);
+    if (nonInstructorCodes.includes(s.role_data?.code)) {  // ✅ Usa array di codici
+      hoursByRole[s.role_data.code] += diffHours(s.start_time, s.end_time);
       return;
     }
 
-    if (s.role.code === "istruttore") {
+    if (s.role_data?.code === "istruttore") {
       const courseName =
         (s.course_type_data?.name || s.course?.name || "Altro").toLowerCase();
 
@@ -145,13 +146,30 @@ export default function ContabilitaDettaglio() {
   const [baseRates, setBaseRates] = useState([]);
   const [userHourlyRates, setUserHourlyRates] = useState([]);
   const [instructorCourseRates, setInstructorCourseRates] = useState([]);
+  const [roles, setRoles] = useState([]);
+
+  useEffect(() => {
+    api.get("/users/roles/")
+      .then(res => setRoles(res.data || []))
+      .catch(() => setRoles([]));
+  }, []);
+
+  
+
+  const instructorRole = roles.find(r => r.code === "istruttore");
+
+  const nonInstructorRoles = roles.filter(r => r.code !== "istruttore");
+  const nonInstructorCodes = nonInstructorRoles.map(r => r.code);
+
+  // ruoli pagati a ore (NON istruttore)
+  const roleHourly = nonInstructorCodes;
 
 
   useEffect(() => {
-    api.get("/api/courses/types/").then((r) => setCourseTypes(r.data || [])).catch(()=>{});
-    api.get("/api/courses/base-rates/").then((r) => setBaseRates(r.data || [])).catch(()=>{});
-    api.get("/api/courses/user-hourly-rates/").then((r) => setUserHourlyRates(r.data || [])).catch(()=>{});
-    api.get("/api/courses/instructor-course-rates/").then((r) => setInstructorCourseRates(r.data || [])).catch(()=>{});
+    api.get("/courses/types/").then((r) => setCourseTypes(r.data || [])).catch(()=>{});
+    api.get("/courses/base-rates/").then((r) => setBaseRates(r.data || [])).catch(()=>{});
+    api.get("/courses/user-hourly-rates/").then((r) => setUserHourlyRates(r.data || [])).catch(()=>{});
+    api.get("/courses/instructor-course-rates/").then((r) => setInstructorCourseRates(r.data || [])).catch(()=>{});
   }, []);
 
   // mese/anno attuali come stato, per poter cambiare mese
@@ -181,7 +199,7 @@ export default function ContabilitaDettaglio() {
   useEffect(() => {
     // carica informazioni utente (non dipende dal mese)
     api
-      .get(`/api/users/${userId}/`)
+      .get(`/users/${userId}/`)
       .then((res) => setUser(res.data))
       .catch(() => {});
   }, [userId]);
@@ -190,7 +208,7 @@ export default function ContabilitaDettaglio() {
     // carica turni del mese selezionato
     api
       .get(
-        `/api/shifts/?user=${userId}&month=${currentMonth}&year=${currentYear}`
+        `/shifts/?user=${userId}&month=${currentMonth}&year=${currentYear}`
       )
       .then((res) => {
         // ordina per data
@@ -208,7 +226,7 @@ export default function ContabilitaDettaglio() {
     return acc;
   }, {});
 
-  if (!user) return <div className="p-6">Caricamento…</div>;
+  if (!user || roles.length === 0) return <div className="p-6">Caricamento…</div>;
 
   // Oggetto Date fittizio solo per mostrare il nome del mese selezionato
   const monthLabelDate = new Date(currentYear, currentMonth - 1, 1);
@@ -218,7 +236,7 @@ export default function ContabilitaDettaglio() {
 
   // === TOTALI MENSILI A PARTIRE DA shifts (crudi, non mergiati) ===
   const { hoursByRole, instructorByCourse, instructorHoursByCourse } =
-    computeMonthlyTotals(shifts);
+    computeMonthlyTotals(shifts, roles);
 
 
   const formatHours = (h) => {
@@ -232,15 +250,33 @@ export default function ContabilitaDettaglio() {
     new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n);
 
   // bagnino/segreteria/pulizia: prima personalizzata (UserHourlyRate), altrimenti base (CategoryBaseRate)
-  const getHourlyRateForRole = (role) => {
-    const custom = userHourlyRates.find((x) => x.user === Number(userId));
+  const getHourlyRateForRole = (roleCode) => {
+    const roleObj = roles.find(r => r.code === roleCode);
+    if (!roleObj) return 0;
+
+    // 🔹 USER OVERRIDE
+    const custom = userHourlyRates.find(
+      x =>
+        x.user === Number(userId) &&
+        (x.role === roleObj.id || x.category === roleObj.id)
+    );
     if (custom?.rate != null) return Number(custom.rate);
 
-    const base = baseRates.find((x) => x.category === role);
+    // 🔹 BASE RATE
+    const base = baseRates.find(
+      x =>
+        x.role === roleObj.id ||
+        x.category === roleObj.id ||
+        x.category_id === roleObj.id
+    );
+
     if (base?.base_rate != null) return Number(base.base_rate);
+    if (base?.rate != null) return Number(base.rate);
 
     return 0;
   };
+
+
 
 
   const pretty = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -258,12 +294,15 @@ export default function ContabilitaDettaglio() {
     const instructorHoursByCourse = {};
 
     for (const s of shifts) {
-      if (roleHourly.includes(s.role.code)) {
-        hoursByRole[s.role.code] = (hoursByRole[s.role.code] || 0) + diffHours(s.start_time, s.end_time);
+      if (roleHourly.includes(s.role_data?.code)) {
+        hoursByRole[s.role_data.code] =
+          (hoursByRole[s.role_data.code] || 0) +
+          diffHours(s.start_time, s.end_time);
         continue;
       }
 
-      if (s.role.code === "istruttore") {
+
+      if (s.role_data?.code === "istruttore") {
         const courseNameRaw = (s.course_type_data?.name || s.course?.name || "Altro").toLowerCase();
         const courseTypeId = s.course_type_data?.id ?? s.course_type ?? null;
 
@@ -333,7 +372,7 @@ export default function ContabilitaDettaglio() {
       // qui usiamo una lookup sul primo shift di quel corso per recuperare l'id
       const sample = shifts.find(
         (s) =>
-          s.role.code === "istruttore" &&
+          s.role_data?.code === "istruttore" &&
           (s.course_type_data?.name || s.course?.name || "").toLowerCase() === courseName
       );
       const courseTypeId = sample?.course_type_data?.id ?? sample?.course_type ?? null;
@@ -377,13 +416,13 @@ export default function ContabilitaDettaglio() {
     let total = 0;
 
     for (const s of shifts) {
-      if (nonInstructorCodes.includes(s.role.code)) {
+      if (nonInstructorCodes.includes(s.role_data?.code)) {
         const hours = diffHours(s.start_time, s.end_time);
-        total += hours * getHourlyRateForRole(s.role.code);
+        total += hours * getHourlyRateForRole(s.role_data.code);
         continue;
       }
 
-      if (s.role.code === "istruttore") {
+      if (s.role_data?.code === "istruttore") {
         const courseTypeId = s.course_type_data?.id ?? s.course_type ?? null;
         const courseName = (s.course_type_data?.name || s.course?.name || "").toLowerCase();
         const rate = getInstructorRateForCourseTypeId(courseTypeId);
@@ -445,14 +484,14 @@ export default function ContabilitaDettaglio() {
                   })}
                 </div>
 
-                {mergeContiguousShifts(grouped[day]).map((s) => {
+                {mergeContiguousShifts(grouped[day], instructorRole?.code ).map((s) => {
                   const start = s.start_time.slice(0, 5);
                   const end = s.end_time.slice(0, 5);
 
                   let extraLabel = null;
 
                   // ---------- ISTRUTTORI: numero corsi + nome corso ----------
-                  if (s.role.code === "istruttore") {
+                  if (s.role_data?.code === "istruttore") {
                     const courseCount = s._is_merged ? s.merged_count : 1;
                     const label = courseCount === 1 ? "corso" : "corsi";
 
@@ -468,7 +507,7 @@ export default function ContabilitaDettaglio() {
                   }
 
                   // ---------- ALTRI RUOLI: numero di ore ----------
-                  if (nonInstructorCodes.includes(s.role.code)) {
+                  if (nonInstructorCodes.includes(s.role_data?.code)) {
                     const hours = diffHours(s.start_time, s.end_time);
                     const label = hours === 1 ? "ora" : "ore";
                     extraLabel = `(${formatHours(hours)} ${label})`;
@@ -478,7 +517,9 @@ export default function ContabilitaDettaglio() {
                     <div key={s.id || s.start_time} className="cd-shift">
                       <div className="cd-shift-left">
                         <span className="cd-bullet">▸</span>
-                        <span className="cd-role">{s.role.code}</span>
+                        <span className="cd-role">
+                          {roles.find(r => r.code === s.role_data?.code)?.label}
+                        </span>
                         <span className="cd-time">
                           {start}–{end}
                         </span>
@@ -505,26 +546,15 @@ export default function ContabilitaDettaglio() {
             {/* Bagnino / Segreteria / Pulizia → totale ore */}
             <div className="cd-totals">
               {nonInstructorRoles.map(role => (
-              hoursByRole[role.code] > 0 && (
-                <li key={role.code}>
-                  <strong>{role.label}:</strong> {formatHours(hoursByRole[role.code])}
-                </li>
-              )
-            ))}
+                hoursByRole[role.code] > 0 && (
+                  <li key={role.code}>
+                    <strong>{role.label}:</strong>{" "}
+                    {formatHours(hoursByRole[role.code])}
+                    {" ore"}
+                  </li>
+                )
+              ))}
 
-              {hoursByRole.segreteria > 0 && (
-                <p>
-                  <strong>Segreteria:</strong> {formatHours(hoursByRole.segreteria)}{" "}
-                  {hoursByRole.segreteria === 1 ? "ora" : "ore"}
-                </p>
-              )}
-
-              {hoursByRole.pulizia > 0 && (
-                <p>
-                  <strong>Pulizia:</strong> {formatHours(hoursByRole.pulizia)}{" "}
-                  {hoursByRole.pulizia === 1 ? "ora" : "ore"}
-                </p>
-              )}
             </div>
 
             {/* Istruttore */}

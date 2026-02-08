@@ -16,16 +16,7 @@ function formatIT(d) {
 
 export default function RealCalendar() {
   const [roles, setRoles] = useState([]);  // Carica da API
-  const [category, setCategory] = useState("");
-
-  useEffect(() => {
-    fetch("/api/users/roles/")
-      .then(res => res.json())
-      .then(data => {
-        setRoles(data);
-        setCategory(data[0]?.code || "");
-      });
-  }, []);
+    
   const instructorRole = roles.find(r => r.code === "istruttore");
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
@@ -39,6 +30,10 @@ export default function RealCalendar() {
   const [isEditing, setIsEditing] = useState(false);
    // ✅ tipi di corso per eventuale editing
   const [courseTypes, setCourseTypes] = useState([]);
+
+
+  const roleIdFromCode = (code) =>
+    roles.find((r) => r.code === code)?.id || null;
  
 
   // ==========================
@@ -46,7 +41,7 @@ export default function RealCalendar() {
   // ==========================
   useEffect(() => {
     api
-      .get("/api/users/")
+      .get("/users/")
       .then((res) => setUsers(res.data || []))
       .catch((err) => console.error("Errore caricamento utenti:", err));
   }, []);
@@ -54,7 +49,7 @@ export default function RealCalendar() {
   // carica tipi corso
   useEffect(() => {
     api
-      .get("/api/courses/types/")
+      .get("/courses/types/")
       .then((res) => setCourseTypes(res.data || []))
       .catch((err) => console.error("Errore caricamento tipi corso:", err));
   }, []);
@@ -69,7 +64,7 @@ export default function RealCalendar() {
   // carica ruoli utenti
   useEffect(() => {
     api
-      .get("/api/roles/")
+      .get("/users/roles/")
       .then((res) => setRoles(res.data || []))
       .catch((err) => console.error("Errore caricamento ruoli:", err));
   }, []);
@@ -81,7 +76,7 @@ export default function RealCalendar() {
     setLoading(true);
 
     api
-      .get("/api/shifts/")
+      .get("/shifts/")
       .then((res) => {
         const all = Array.isArray(res.data) ? res.data : [];
 
@@ -136,6 +131,10 @@ export default function RealCalendar() {
             extendedProps: {
               raw: {
                 ...s,
+                role_code:
+                  typeof s.role === "object"
+                    ? s.role.code
+                    : roles.find((r) => r.id === s.role)?.code || null,
                 start_time: startTime,
                 end_time: endTime,
                 user_id: userId,
@@ -158,11 +157,12 @@ export default function RealCalendar() {
   };
 
   useEffect(() => {
-    if (users.length > 0) {
+    if (users.length > 0 && roles.length > 0) {
       loadAllShifts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users]);
+  }, [users, roles]);
+
 
   // ==========================
   // EVENT CLICK → POPUP
@@ -176,7 +176,7 @@ export default function RealCalendar() {
       id: raw.id || fcEvent.id,
       user: raw.user_id,
       user_username: raw.user_username,
-      role: raw.role || "",
+      role: raw.role_code || "",
       date: dateStr,
       start_time:
         raw.start_time ||
@@ -206,7 +206,8 @@ export default function RealCalendar() {
     const timeLabel = `${start} - ${end}`;
 
     const titleUser = raw.user_username || "—";
-    const role = raw.role || "";
+    const role = raw.role_code || "";
+
     const courseName = raw.course_name || "";
 
     let label = "";
@@ -249,7 +250,7 @@ if (role === instructorRole?.code) {
       return;
 
     try {
-      await api.delete(`/api/shifts/${selectedEvent.id}/`);
+      await api.delete(`/shifts/${selectedEvent.id}/`);
       setSelectedEvent(null);
       loadAllShifts();
     } catch (e) {
@@ -263,7 +264,7 @@ if (role === instructorRole?.code) {
 
     const payload = {
       user: selectedEvent.user,
-      role: selectedEvent.role,
+      role: roleIdFromCode(selectedEvent.role),  // ✅ ID
       date: selectedEvent.date,
       start_time: selectedEvent.start_time,
       end_time: selectedEvent.end_time,
@@ -271,7 +272,7 @@ if (role === instructorRole?.code) {
     };
 
     try {
-      await api.patch(`/api/shifts/${selectedEvent.id}/`, payload);
+      await api.patch(`/shifts/${selectedEvent.id}/`, payload);
       setIsEditing(false);
       setSelectedEvent(null);
       loadAllShifts();
@@ -434,7 +435,7 @@ if (role === instructorRole?.code) {
                 </option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.username} ({u.role})
+                    {u.username}
                   </option>
                 ))}
               </select>
@@ -499,7 +500,7 @@ if (role === instructorRole?.code) {
       ? events
       : events.filter((e) => {
           const raw = e.extendedProps?.raw;
-          return raw?.role === roleFilter;
+          return raw?.role_code === roleFilter;
         });
 
   return (

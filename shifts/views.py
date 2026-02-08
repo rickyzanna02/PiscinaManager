@@ -714,7 +714,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
         search_start = first - timedelta(days=7)
         search_end = last + timedelta(days=7)
 
-        # ✅ MODIFICATO: Usa role__code invece di category
+        
         weeks = PublishedWeek.objects.filter(
             role__code=category,  # ✅ Cambiato
             start_date__range=[search_start, search_end]
@@ -752,7 +752,7 @@ class TemplateShiftViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         category_code = self.request.query_params.get('category')
         if category_code:
-            qs = qs.filter(role__code=category_code)  # ✅ Usa lookup FK
+            qs = qs.filter(category__code=category_code)  # ✅ Usa lookup FK
         return qs.order_by('weekday', 'start_time')
 
 

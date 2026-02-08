@@ -60,14 +60,22 @@ export default function MyShifts() {
   const loadShifts = useCallback(() => {
     if (!userId || !user) return; 
     api
-      .get(`/api/shifts/?user=${userId}`)
+      .get(`/shifts/?user=${userId}`)
       .then((res) => {
         const mapped = res.data.map((s) => {
           let color = "#3b82f6"; // blu
           let clickable = true;
 
           // ✅ base: corso se c'è, altrimenti ruolo
-          let title = s.course_type_data?.name || s.role.code;
+          const roleCode =
+            typeof s.role === "object"
+              ? s.role.code
+              : s.role_code || s.role; // fallback se il backend manda già il code
+
+          const roleLabel = s.role_data?.label || s.role_data?.code || "";
+
+          let title = s.course_type_data?.name || roleLabel;
+
 
           if (s.replacement_info?.accepted) {
             if (s.replacement_info.requester_id === userId) {
@@ -88,7 +96,12 @@ export default function MyShifts() {
             start: `${s.date}T${s.start_time}`,
             end: `${s.date}T${s.end_time}`,
             color,
-            extendedProps: { clickable },
+            extendedProps: {
+              clickable,
+              role_code: s.role_data?.code || null,
+              role_label: s.role_data?.label || null,
+              course_name: s.course_type_data?.name || null,
+            },
           };
         });
 
@@ -108,7 +121,7 @@ export default function MyShifts() {
     if (!selectedShift || !user) return;
 
     api
-      .get(`/api/shifts/${selectedShift.id}/available_collaborators/`)
+      .get(`/shifts/${selectedShift.id}/available_collaborators/`)
       .then((res) => setCollaborators(res.data || []))
       .catch((err) => {
         handle401(err);
@@ -137,7 +150,7 @@ export default function MyShifts() {
     if (!userId || !user) return;
 
     api
-      .get(`/api/shifts/replacements_sent/?user_id=${userId}&year=${filterYear}&month=${filterMonth}`)
+      .get(`/shifts/replacements_sent/?user_id=${userId}&year=${filterYear}&month=${filterMonth}`)
       .then((res) => {
         const data = res.data || [];
         setSentRequests(data);
@@ -157,7 +170,7 @@ export default function MyShifts() {
 
 
     api
-      .get(`/api/shifts/replacements_received/?user_id=${userId}&year=${filterYear}&month=${filterMonth}&only_pending=false`)
+      .get(`/shifts/replacements_received/?user_id=${userId}&year=${filterYear}&month=${filterMonth}&only_pending=false`)
       .then((res) => setReceivedRequests(res.data || []))
       .catch(handle401); 
 
@@ -200,7 +213,7 @@ export default function MyShifts() {
     setSelectedUsers([]);
     // 🔽 carica collaboratori corretti
     api
-      .get(`/api/shifts/${fcEvent.id}/available_collaborators/`)
+      .get(`/shifts/${fcEvent.id}/available_collaborators/`)
       .then((res) => setCollaborators(res.data || []))
       .catch(() => setCollaborators([]));
   };
@@ -232,7 +245,7 @@ export default function MyShifts() {
     };
 
     try {
-      await api.post(`/api/shifts/${selectedShift.id}/ask_replacement/`, payload);
+      await api.post(`/shifts/${selectedShift.id}/ask_replacement/`, payload);
       alert("Richieste inviate!");
       setSelectedShift(null);
       setStep(null);
@@ -249,7 +262,7 @@ export default function MyShifts() {
     const action = status === "accepted" ? "accept" : "reject";
 
     try {
-      await api.post("/api/shifts/respond_replacement/", {
+      await api.post("/shifts/respond_replacement/", {
         request_id: id,
         action,
       });
@@ -358,10 +371,16 @@ const renderRequests = () => (
         )}
 
         {sentRequests.map((r) => {
+          const roleLabel =
+            r.shift_info.role_data?.label ||
+            r.shift_info.role_data?.code ||
+            "—";
+
           const courseName = r.shift_info.course_type_data?.name || null;
+
           const header = courseName
-            ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
-            : `${r.shift_info.role} – ${r.shift_info.date}`;
+            ? `${courseName} – ${roleLabel} – ${r.shift_info.date}`
+            : `${roleLabel} – ${r.shift_info.date}`;
 
           return (
             <div key={r.id} className="border p-2 mb-2 rounded text-sm">
@@ -414,10 +433,16 @@ const renderRequests = () => (
         )}
 
         {receivedRequests.map((r) => {
+          const roleLabel =
+            r.shift_info.role_data?.label ||
+            r.shift_info.role_data?.code ||
+            "—";
+
           const courseName = r.shift_info.course_type_data?.name || null;
+
           const header = courseName
-            ? `${courseName} – ${r.shift_info.role} – ${r.shift_info.date}`
-            : `${r.shift_info.role} – ${r.shift_info.date}`;
+            ? `${courseName} – ${roleLabel} – ${r.shift_info.date}`
+            : `${roleLabel} – ${r.shift_info.date}`;
 
           return (
             <div key={r.id} className="border p-2 mb-2 rounded text-sm">
@@ -514,6 +539,13 @@ const renderRequests = () => (
               <h2 className="font-bold text-lg mb-3">
                 Turno {selectedShift.title} ({startLabel}–{endLabel})
               </h2>
+
+              <p className="text-sm mb-2">
+                <strong>Ruolo:</strong>{" "}
+                {selectedShift.extendedProps?.role_label ||
+                selectedShift.extendedProps?.role_code ||
+                "—"}
+              </p>
               <p className="text-sm mb-4 text-gray-600">
                 Seleziona cosa vuoi fare con questo turno.
               </p>

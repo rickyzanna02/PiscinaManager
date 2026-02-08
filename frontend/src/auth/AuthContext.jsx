@@ -9,7 +9,7 @@ export function AuthProvider({ children }) {
 
   // 🔐 LOGIN
   const login = async (username, password) => {
-    const res = await api.post("/api/auth/login/", {
+    const res = await api.post("/auth/login/", {
       username,
       password,
     });
@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("refresh", res.data.refresh);
 
     // 🔁 carica utente
-    const me = await api.get("/api/auth/me/");
+    const me = await api.get("/auth/me/");
     setUser(me.data);
 
     return me.data;
@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const me = await api.get("/api/auth/me/");
+      const me = await api.get("/auth/me/");
       setUser(me.data);
     } catch {
       localStorage.removeItem("access");

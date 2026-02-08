@@ -7,7 +7,7 @@ import itLocale from "@fullcalendar/core/locales/it";
 
 export default function App() {
   const [roles, setRoles] = useState([]);  // Carica da API
-  const [category, setCategory] = useState(null);  // ✅ null invece di ""
+  const [category, setCategory] = useState("");  
 
   // ✅ NUOVO useEffect con getRoles
   useEffect(() => {
@@ -27,14 +27,7 @@ export default function App() {
     loadRoles();
   }, []);
 
-  // ✅ Non renderizzare finché category non è caricato
-  if (!category) {
-    return (
-      <div style={{ padding: "20px", textAlign: "center" }}>
-        <p>Caricamento ruoli...</p>
-      </div>
-    );
-  }
+
 
   
   const [users, setUsers] = useState([]);
@@ -114,15 +107,17 @@ export default function App() {
 
   // carica tipi corso dal backend
   useEffect(() => {
-    api.get("/api/courses/types/").then((res) => {
+    api.get("/courses/types/").then((res) => {
       setCourseTypes(res.data || []);
     });
   }, []);
 
   // settimane già pubblicate
   useEffect(() => {
+    if (!category) return;   // ⛔ BLOCCA LA CHIAMATA
+
     api
-      .get("/api/shifts/published_weeks/", {
+      .get("/shifts/published_weeks/", {
         params: {
           year: selectedMonth.getFullYear(),
           month: selectedMonth.getMonth() + 1,
@@ -201,7 +196,7 @@ export default function App() {
   // carica utenti
   useEffect(() => {
     api
-      .get("/api/users/", {
+      .get("/users/", {
         params: { role: category },
       })
       .then((res) => setUsers(res.data || []));
@@ -212,7 +207,7 @@ export default function App() {
   
 
   const loadEvents = () => {
-    api.get(`/api/templates/?category=${category}`).then((res) => {
+    api.get(`/templates/?category=${category}`).then((res) => {
       const rows = Array.isArray(res.data) ? res.data : [];
       const mapped = rows.map((t) => {
         const userId = typeof t.user === "number" ? t.user : t.user?.id ?? null;
@@ -267,9 +262,9 @@ export default function App() {
     const weekday = jsToBackendWeekday(selectedSlot.start.getDay());
     const start = hhmm(selectedSlot.start.toTimeString());
     const end = hhmm(selectedSlot.end.toTimeString());
-
+    const roleObj = roles.find(r => r.code === category);
     const payload = {
-      category,
+      category_id: roleObj.id,   // ✅ ID, non code
       user: userId,
       weekday,
       start_time: start,
@@ -277,7 +272,7 @@ export default function App() {
     };
 
     api
-      .post("/api/templates/", payload)
+      .post("/templates/", payload)
       .then(() => {
         setSelectedSlot(null);
         loadEvents();
@@ -291,7 +286,7 @@ export default function App() {
   // elimina
   const handleDelete = (id) => {
     if (!window.confirm("Sei sicuro di voler eliminare questo turno?")) return;
-    api.delete(`/api/templates/${id}/`).then(() => {
+    api.delete(`/templates/${id}/`).then(() => {
       setSelectedEvent(null);
       loadEvents();
     });
@@ -305,7 +300,7 @@ export default function App() {
       end_time: hhmm(updated.end_time),
     };
 
-    api.patch(`/api/templates/${id}/`, payload).then(() => {
+    api.patch(`/templates/${id}/`, payload).then(() => {
       setSelectedEvent(null);
       loadEvents();
     });
@@ -406,7 +401,7 @@ export default function App() {
     }
 
     const payload = {
-      category: instructorRole.code,
+      category_id: instructorRole.id,
       user,
       weekday,
       start_time,
@@ -415,7 +410,7 @@ export default function App() {
     };
 
     try {
-      await api.post("/api/templates/", payload);
+      await api.post("/templates/", payload);
       setShowCourseModal(false);
       loadEvents();
     } catch (err) {
@@ -588,7 +583,7 @@ export default function App() {
                       end: w.end.toISOString().slice(0, 10),
                     }));
 
-                  await api.post("/api/shifts/publish/", {
+                  await api.post("/shifts/publish/", {
                     category: category,
                     weeks: weeksPayload,
                   });
@@ -714,7 +709,7 @@ export default function App() {
                       }
 
                       const payload = {
-                        category: instructorRole.code,
+                        category_id: instructorRole.id,
                         user: userId,
                         weekday,
                         start_time: start,
@@ -723,7 +718,7 @@ export default function App() {
                       };
 
                       try {
-                        await api.post("/api/templates/", payload);
+                        await api.post("/templates/", payload);
                         setSelectedSlot(null);
                         loadEvents();
                       } catch (e) {
@@ -1111,8 +1106,8 @@ export default function App() {
                   for (const start of selected) {
                     const end = addMinutes(start, minutes);
 
-                    await api.post("/api/templates/", {
-                      category: instructorRole.code,
+                    await api.post("/templates/", {
+                      category_id: instructorRole.id,   // ✅ CORRETTO
                       user: quickForm.user,
                       weekday,
                       start_time: start,
