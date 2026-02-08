@@ -7,7 +7,7 @@ const api = axios.create({
 // 🔐 Interceptor JWT
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("access"); // 🔴 CHIAVE UNICA
+    const token = localStorage.getItem("access");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -15,5 +15,19 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+// ============================================
+// ✅ FASE 2: API Functions
+// ============================================
+
+/**
+ * Ottieni tutti i ruoli disponibili dal backend.
+ * 
+ * @returns {Promise<Array>} Lista di ruoli: [{id, code, label}, ...]
+ */
+export const getRoles = async () => {
+  const response = await api.get('/users/roles/');
+  return response.data;
+};
 
 export default api;

@@ -14,9 +14,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view, permission_classes
 
 @api_view(['GET'])
+@permission_classes([AllowAny])  # ✅ AGGIUNTO
 def list_roles(request):
     """
     GET /api/users/roles/
@@ -99,6 +101,8 @@ class RegisterView(generics.CreateAPIView):
 class UserRoleListView(ListAPIView):
     queryset = UserRole.objects.all()
     serializer_class = UserRoleSerializer
+    permission_classes = [AllowAny]  # ✅ AGGIUNTO
+    pagination_class = None  # ✅ Disabilita paginazione
 
 
 class ChangePasswordView(APIView):

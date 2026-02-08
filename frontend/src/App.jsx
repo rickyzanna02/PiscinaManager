@@ -2,21 +2,39 @@ import { useEffect, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import api from "./api";
+import api, { getRoles } from "./api";  // ✅ Aggiungi { getRoles }
 import itLocale from "@fullcalendar/core/locales/it";
 
 export default function App() {
   const [roles, setRoles] = useState([]);  // Carica da API
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(null);  // ✅ null invece di ""
 
+  // ✅ NUOVO useEffect con getRoles
   useEffect(() => {
-    fetch("/api/users/roles/")
-      .then(res => res.json())
-      .then(data => {
+    const loadRoles = async () => {
+      try {
+        const data = await getRoles();
         setRoles(data);
-        setCategory(data[0]?.code || "");
-      });
+        if (data && data.length > 0) {
+          setCategory(data[0].code);
+        }
+      } catch (error) {
+        console.error("Errore caricamento ruoli:", error);
+        // Fallback: usa ruolo di default
+        setCategory("bagnino");
+      }
+    };
+    loadRoles();
   }, []);
+
+  // ✅ Non renderizzare finché category non è caricato
+  if (!category) {
+    return (
+      <div style={{ padding: "20px", textAlign: "center" }}>
+        <p>Caricamento ruoli...</p>
+      </div>
+    );
+  }
 
   
   const [users, setUsers] = useState([]);

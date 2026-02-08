@@ -44,7 +44,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
         if user_id:
             qs = qs.filter(user_id=user_id)
         if role:
-            qs = qs.filter(role=role)
+            qs = qs.filter(role__code=role)  # ✅ Usa lookup FK
         if month and year:
             qs = qs.filter(date__month=month, date__year=year)
         return qs.order_by('date', 'start_time')
@@ -75,7 +75,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                 # evita duplicati se già generato
                 shift, created = Shift.objects.get_or_create(
                     user=template.user,
-                    role=template.role,  # ✅ Ora 'role' è FK in TemplateShift
+                    role=template.category,  # ✅ TemplateShift usa 'category', non 'role'
                     date=current_date,
                     start_time=template.start_time,
                     end_time=template.end_time,
@@ -154,14 +154,14 @@ class ShiftViewSet(viewsets.ModelViewSet):
 
                 templates = TemplateShift.objects.filter(
                     weekday=weekday,
-                    role=role  # ✅ Usa FK UserRole invece di stringa
+                    category=role  # ✅ TemplateShift usa 'category'
                 )
 
                 for template in templates:
                     if not template.user:
                         continue
 
-                    key = (current_date, template.user_id, template.role.code)  # ✅ Usa .code dalla FK
+                    key = (current_date, template.user_id, template.category.code)  # ✅ Usa .code dalla FK
                     template_keys.add(key)
 
                     if key in existing_map:
@@ -184,7 +184,7 @@ class ShiftViewSet(viewsets.ModelViewSet):
                     else:
                         Shift.objects.create(
                             user=template.user,
-                            role=template.role,  # ✅ Ora è FK, non stringa
+                            role=template.category,  # ✅ TemplateShift.category → Shift.role
                             date=current_date,
                             start_time=template.start_time,
                             end_time=template.end_time,
