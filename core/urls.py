@@ -3,14 +3,10 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('shifts.urls')),
-    path('api/', include('users.urls')),
-    path('api/courses/', include('courses.urls')),
-    path("api/auth/", include("users.urls")),
-    path("api/users/", include("users.urls")),
-    path("api/auth/", include("users.urls")),
     
-
-
-
+    # API endpoints
+    path('api/auth/', include('users.urls')),  # ✅ Auth endpoints (/api/auth/login, /api/auth/me, etc.)
+    path('api/users/', include('users.urls')),  # ✅ User endpoints (/api/users/roles/, /api/users/users/, etc.)
+    path('api/', include('shifts.urls')),      # ✅ Shifts endpoints
+    path('api/courses/', include('courses.urls')),  # ✅ Courses endpoints
 ]
