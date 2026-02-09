@@ -4,25 +4,20 @@ from django.conf import settings
 
 class Shift(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    
-    # ✅ CAMBIATO: da CharField a FK
     role = models.ForeignKey(
         'users.UserRole',
         on_delete=models.PROTECT,
         related_name='shifts'
     )
-    
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-
     course_type = models.ForeignKey(
         'courses.CourseType',
         on_delete=models.SET_NULL,
         null=True,
         blank=True
     )
-
     approved = models.BooleanField(default=False)
 
     def total_hours(self):
@@ -36,13 +31,11 @@ class Shift(models.Model):
 
 
 class TemplateShift(models.Model):
-    # ✅ CAMBIATO: da CharField a FK
     category = models.ForeignKey(
         'users.UserRole',
         on_delete=models.PROTECT,
         related_name='template_shifts'
-    )
-    
+    )    
     weekday = models.IntegerField(choices=[
         (i, d) for i, d in enumerate(
             ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
@@ -51,7 +44,6 @@ class TemplateShift(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-
     course_type = models.ForeignKey(
         'courses.CourseType',
         on_delete=models.SET_NULL,
@@ -82,7 +74,6 @@ class ReplacementRequest(models.Model):
         on_delete=models.CASCADE,
         related_name="replacement_requests_received"
     )
-
     partial = models.BooleanField(default=False)
     partial_start = models.TimeField(null=True, blank=True)
     partial_end = models.TimeField(null=True, blank=True)
@@ -109,10 +100,6 @@ class ReplacementRequest(models.Model):
 class PublishedWeek(models.Model):
     """
     Traccia quali settimane sono state pubblicate per ogni categoria/ruolo.
-    
-    REFACTOR: ora usa ForeignKey a UserRole invece di CharField hardcoded.
-    Questo garantisce coerenza con la tabella UserRole e impedisce errori
-    di battitura o inconsistenze nei nomi delle categorie.
     """
     role = models.ForeignKey(
         'users.UserRole',

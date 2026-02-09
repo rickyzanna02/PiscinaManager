@@ -1,24 +1,25 @@
-from rest_framework import generics, permissions
-from rest_framework.response import Response
-from .serializers import RegisterSerializer
-from rest_framework.viewsets import ReadOnlyModelViewSet
-from rest_framework.permissions import IsAuthenticated
+# Standard library
 from django.contrib.auth import get_user_model
-from .serializers import UserListSerializer
-from rest_framework.permissions import IsAdminUser
-from rest_framework.generics import ListAPIView
-from .models import UserRole, ContabilitaCheck, User
-from .serializers import UserRoleSerializer
-User = get_user_model()
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from rest_framework.views import APIView
-from rest_framework import status
-from rest_framework.permissions import AllowAny
+
+# Django REST Framework
+from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.viewsets import ReadOnlyModelViewSet
+
+# Local imports
+from .models import UserRole, ContabilitaCheck
+from .serializers import RegisterSerializer, UserRoleSerializer, UserListSerializer
+
+User = get_user_model()
 
 @api_view(['GET'])
-@permission_classes([AllowAny])  # ✅ AGGIUNTO
+@permission_classes([AllowAny])  
 def list_roles(request):
     """
     GET /api/users/roles/
@@ -47,11 +48,9 @@ class MeView(APIView):
 
     def put(self, request):
         user = request.user
-
         user.first_name = request.data.get("first_name", user.first_name)
         user.last_name = request.data.get("last_name", user.last_name)
         user.date_of_birth = request.data.get("date_of_birth", user.date_of_birth)
-
         user.save()
 
         return Response({
@@ -85,17 +84,13 @@ class UserViewSet(ReadOnlyModelViewSet):
         return qs.distinct().order_by("username")
 
 
-
-
-
 class RegisterView(generics.CreateAPIView):
     """
     Registrazione utente standard (collaboratore).
     """
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
-    permission_classes = [permissions.AllowAny]
-
+    permission_classes = [AllowAny]
 
     
 class UserRoleListView(ListAPIView):
@@ -108,38 +103,31 @@ class UserRoleListView(ListAPIView):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
-
     def post(self, request):
         user = request.user
-
-
         old_password = request.data.get("old_password")
         new_password = request.data.get("new_password")
 
-
         if not user.check_password(old_password):
             return Response(
-            {"detail": "Password attuale errata"},
-            status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Password attuale errata"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-
 
         try:
             validate_password(new_password, user)
         except ValidationError as e:
             return Response(
-            {"detail": e.messages},
-            status=status.HTTP_400_BAD_REQUEST
+                {"detail": e.messages},
+                status=status.HTTP_400_BAD_REQUEST
             )
-
 
         user.set_password(new_password)
         user.save()
 
-
         return Response(
-        {"detail": "Password aggiornata"},
-        status=status.HTTP_200_OK
+            {"detail": "Password aggiornata"},
+            status=status.HTTP_200_OK
         )
     
 class ToggleContabilitaCheckView(APIView):
@@ -147,16 +135,13 @@ class ToggleContabilitaCheckView(APIView):
     def post(self, request, user_id):
         checked_by = request.user
         user = User.objects.get(id=user_id)
-
-
         obj, created = ContabilitaCheck.objects.get_or_create(
-        checked_by=checked_by,
-        user=user
+            checked_by=checked_by,
+            user=user
         )
         if not created:
             obj.delete()
             return Response({"checked": False})
-
 
         return Response({"checked": True})
     

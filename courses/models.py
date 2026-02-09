@@ -3,16 +3,9 @@ from django.conf import settings
 
 
 # ================================
-# 1️⃣ Tariffe base per le categorie
+# 1️ - Tariffe base per ogni ruolo/categoria.
 # ================================
 class CategoryBaseRate(models.Model):
-    """
-    Tariffa oraria base per ogni ruolo/categoria.
-    
-    REFACTOR: ora usa ForeignKey a UserRole invece di CharField hardcoded.
-    Questo garantisce coerenza con la tabella UserRole e permette di gestire
-    i ruoli centralmente.
-    """
     role = models.OneToOneField(
         'users.UserRole',
         on_delete=models.CASCADE,
@@ -34,7 +27,7 @@ class CategoryBaseRate(models.Model):
 
 
 # ====================================
-# 2️⃣ Tariffe personalizzate per utente
+# 2️ - Tariffe personalizzate per utente
 # (bagnino, segreteria, pulizie)
 # ====================================
 class UserHourlyRate(models.Model):
@@ -50,23 +43,19 @@ class UserHourlyRate(models.Model):
 
 
 # =====================================
-# 3️⃣ Tipi di corso (base per istruttori)
+# 3️ - Tipi di corso (base per istruttori)
 # =====================================
 class CourseType(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-
-    # Tariffa base del corso
-    base_rate = models.DecimalField(max_digits=6, decimal_places=2)
-
-    # Durata standard (es: 40 o 45 min)
-    default_minutes = models.PositiveIntegerField(null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True)    
+    base_rate = models.DecimalField(max_digits=6, decimal_places=2) # Tariffa base del corso    
+    default_minutes = models.PositiveIntegerField(null=True, blank=True)    # Durata standard (es: 40 o 45 min)
 
     def __str__(self):
         return self.name
 
 
 # ==================================================
-# 4️⃣ Tariffa personalizzata dell'istruttore per corso
+# 4️ - Tariffa personalizzata dell'istruttore per corso
 # ==================================================
 class InstructorCourseRate(models.Model):
     instructor = models.ForeignKey(

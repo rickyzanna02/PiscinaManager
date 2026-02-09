@@ -6,7 +6,6 @@ from .models import (
     InstructorCourseRate,
 )
 
-
 @admin.register(CategoryBaseRate)
 class CategoryBaseRateAdmin(admin.ModelAdmin):
     list_display = ("role", "base_rate")

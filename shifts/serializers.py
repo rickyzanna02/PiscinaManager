@@ -6,8 +6,6 @@ from users.models import UserRole
 
 class ShiftSerializer(serializers.ModelSerializer):
     replacement_info = serializers.SerializerMethodField()
-
-    # ✅ Gestione role come FK
     role_data = serializers.SerializerMethodField(read_only=True)
     role_id = serializers.PrimaryKeyRelatedField(
         queryset=UserRole.objects.all(),
@@ -15,11 +13,7 @@ class ShiftSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-
-    # input compatibile col frontend (id corso)
     course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-
-    # output ricco per il frontend
     course_type_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -84,10 +78,10 @@ class ShiftSerializer(serializers.ModelSerializer):
 
 
 class TemplateShiftSerializer(serializers.ModelSerializer):
-    # ⛔ blocca input diretto su category
+    #  blocca input diretto su category
     category = serializers.PrimaryKeyRelatedField(read_only=True)
 
-    # ✅ unico campo ammesso in input
+    # unico campo ammesso in input
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=UserRole.objects.all(),
         source="category",
@@ -96,7 +90,6 @@ class TemplateShiftSerializer(serializers.ModelSerializer):
     )
 
     category_data = serializers.SerializerMethodField(read_only=True)
-
     course = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     course_type_data = serializers.SerializerMethodField(read_only=True)
 

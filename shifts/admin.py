@@ -1,15 +1,12 @@
 from django.contrib import admin, messages
 from django.utils import timezone
-
 from .models import (
     Shift,
     TemplateShift,
     PublishedWeek,
     ReplacementRequest
 )
-
 from .utils import generate_shifts_from_template
-
 
 # ==============================
 # SHIFT
@@ -35,16 +32,15 @@ class ShiftAdmin(admin.ModelAdmin):
 @admin.register(TemplateShift)
 class TemplateShiftAdmin(admin.ModelAdmin):
     list_display = (
-        'category',  # ✅ AGGIORNATO da 'category' a 'role'
+        'category',
         'weekday',
         'start_time',
         'end_time',
         'user',
         'course_type',
     )
-    list_filter = ('category', 'weekday', 'course_type')  # ✅ AGGIORNATO da 'category' a 'role'
+    list_filter = ('category', 'weekday', 'course_type')
     search_fields = ('user__username',)
-    
     actions = ["genera_turni_mese_corrente"]
 
     @admin.action(description="Genera i turni del mese corrente dai template")
@@ -63,8 +59,8 @@ class TemplateShiftAdmin(admin.ModelAdmin):
 # ==============================
 @admin.register(PublishedWeek)
 class PublishedWeekAdmin(admin.ModelAdmin):
-    list_display = ("role", "start_date", "created_at")  # ✅ AGGIORNATO a 'role'
-    list_filter = ("role", "start_date")  # ✅ AGGIORNATO a 'role'
+    list_display = ("role", "start_date", "created_at")  
+    list_filter = ("role", "start_date") 
     ordering = ("-start_date",)
 
 

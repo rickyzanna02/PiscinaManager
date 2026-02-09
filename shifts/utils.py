@@ -18,13 +18,13 @@ def generate_shifts_from_template(year: int, month: int):
         for t in templates.filter(weekday=weekday):
             obj, created = Shift.objects.get_or_create(
                 user=t.user,
-                role=t.category,              # 🔥 FIX 1
+                role=t.category,             
                 date=date,
                 start_time=t.start_time,
                 end_time=t.end_time,
                 defaults={
                     "approved": False,
-                    "course_type": t.course_type,  # 🔥 FIX 2
+                    "course_type": t.course_type, 
                 },
             )
             if created:

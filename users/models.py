@@ -2,8 +2,6 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 
-
-
 class UserRole(models.Model):
     code = models.CharField(max_length=50, unique=True)
     label = models.CharField(max_length=100)
@@ -25,8 +23,6 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.first_name} {self.last_name})"
-    
-
 
 
 class ContabilitaCheck(models.Model):

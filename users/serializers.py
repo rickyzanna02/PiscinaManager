@@ -45,16 +45,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
 
         user = User(**validated_data)
-        user.set_password(password)  # 🔐 HASH SICURO
+        user.set_password(password)  # hash
         user.save()
 
         if roles:
             user.roles.set(roles)
 
         return user
-    
-
-
 
 class ContabilitaCheckSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id")

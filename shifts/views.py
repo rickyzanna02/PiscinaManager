@@ -206,38 +206,6 @@ class ShiftViewSet(viewsets.ModelViewSet):
             "debug": debug_log,
         })
 
-
-
-
-
-    # ----------------------------------------------------------
-    # RICHIESTA SOSTITUZIONE "vecchia" (manager → tutti)
-    # ----------------------------------------------------------
-    @action(detail=True, methods=['post'])
-    def request_replacement(self, request, pk=None):
-        """
-        Vecchio endpoint generico: manda una richiesta "broadcast" (mock).
-        Lo lascio per compatibilità, ma la nuova logica usa ReplacementRequest.
-        """
-        try:
-            shift = self.get_object()
-        except Shift.DoesNotExist:
-            return Response({'error': 'Turno non trovato'}, status=status.HTTP_404_NOT_FOUND)
-
-        users = User.objects.exclude(id=shift.user.id)
-        user_list = [u.username for u in users]
-
-        return Response({
-            'message': 'Richiesta di sostituzione inviata!',
-            'to': user_list,
-            'shift': {
-                'id': shift.id,
-                'date': shift.date,
-                'role': shift.role,
-                'user': shift.user.username
-            }
-        }, status=status.HTTP_200_OK)
-
     # ----------------------------------------------------------
     # NUOVO: CREAZIONE RICHIESTE SOSTITUZIONE PUNTUALI
     # ----------------------------------------------------------
@@ -755,37 +723,6 @@ class TemplateShiftViewSet(viewsets.ModelViewSet):
             qs = qs.filter(category__code=category_code)  # ✅ Usa lookup FK
         return qs.order_by('weekday', 'start_time')
 
-
-# ============================================================
-#  API SEPARATA PER NOTIFICA SOSTITUZIONE (manager)
-# ============================================================
-@api_view(['POST'])
-def notify_replacement(request):
-    """
-    Invio di una richiesta di sostituzione da parte del manager.
-    (endpoint "storico", ora hai ReplacementRequest per la parte collaboratori)
-    """
-    shift_id = request.data.get('shift_id')
-    if not shift_id:
-        return Response({'error': 'shift_id mancante'}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        shift = Shift.objects.get(id=shift_id)
-    except Shift.DoesNotExist:
-        return Response({'error': 'Turno non trovato'}, status=status.HTTP_404_NOT_FOUND)
-
-    users = User.objects.exclude(id=shift.user.id)
-    user_list = [u.username for u in users]
-
-    return Response({
-        'message': 'Richiesta sostituzione inviata a tutti gli utenti',
-        'to': user_list,
-        'shift': {
-            'date': shift.date,
-            'role': shift.role,
-            'user': shift.user.username
-        }
-    })
 
 
 
