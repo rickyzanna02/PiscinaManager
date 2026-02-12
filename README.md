@@ -64,7 +64,7 @@ ShiftManager is a full-stack web application designed to streamline staff shift 
 ├── 📁 frontend
 |
 ├── 📁 docs
-|   ├── ▶️ Video_Demo.mp4   # example of app use
+|   ├── ▶️ ShiftManagerDemo.mp4   # example of app use
 │   └── 📕 ShiftManager.pdf # report of the project
 |
 ├── 📝 README.md
