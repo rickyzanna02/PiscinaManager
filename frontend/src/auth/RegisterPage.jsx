@@ -22,7 +22,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     api
-      .get("/api/auth/roles/")
+      .get("/users/roles/")
       // filtra se ruolo diverso da contabilita
       .then((res) => {
         const filteredRoles = res.data.filter(role => role.label.toLowerCase() !== "contabilita");
@@ -57,7 +57,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await api.post("/api/auth/register/", {
+      await api.post("/auth/register/", {
         ...form,
         roles: form.roles, 
       });
@@ -78,6 +78,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
         onSubmit={handleSubmit}
+        autoComplete="off"
         className="bg-white p-6 rounded shadow w-96"
       >
         <h1 className="text-xl font-bold mb-4 text-center">
@@ -179,9 +180,7 @@ export default function RegisterPage() {
             Accedi
           </button>
         </div>
-        <pre className="text-xs bg-gray-100 p-2 mb-2">
-        {JSON.stringify(form.roles, null, 2)}
-        </pre>
+        
       </form>
     </div>
   );

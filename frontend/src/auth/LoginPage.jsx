@@ -40,6 +40,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
         onSubmit={handleSubmit}
+        autoComplete="off"
         className="bg-white p-6 rounded shadow w-80"
       >
         <h1 className="text-xl font-bold mb-4 text-center">
