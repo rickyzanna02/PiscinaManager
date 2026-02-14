@@ -1,4 +1,4 @@
-# ShiftManager: Application for staff shift management, substitution requests, and automatic compensation calculation**
+# ShiftManager: Application for staff shift management, substitution requests, and automatic compensation calculation
 
 > University of Trento  
 > Department of Information Engineering and Computer Science  
@@ -65,7 +65,7 @@ ShiftManager is a full-stack web application designed to streamline staff shift 
 |
 ├── 📁 docs
 |   ├── ▶️ ShiftManagerDemo.mp4   # example of app use
-│   └── 📕 ShiftManager.pdf # report of the project
+│   └── 📕 ShiftManagerReport.pdf # report of the project
 |
 ├── 📝 README.md
 └── 📄 requirements.txt
